@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Finance Master PWA</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4f46e5">
+    <link rel="apple-touch-icon" href="icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-soft: #818cf8;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --bg-grad: linear-gradient(135deg, #f0f2f5 0%, #e0e7ff 100%);
+            --card-bg: rgba(255, 255, 255, 0.85);
+            --text-main: #111827;
+            --text-sub: #6b7280;
+            --radius: 20px;
+            --shadow: 0 8px 30px rgba(0,0,0,0.08);
+        }
+
+        [data-theme="dark"] {
+            --bg-grad: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+            --card-bg: rgba(30, 41, 59, 0.9);
+            --text-main: #f3f4f6;
+            --text-sub: #94a3b8;
+            --shadow: 0 8px 30px rgba(0,0,0,0.3);
+        }
+
+        body { font-family: 'Inter', sans-serif; background: var(--bg-grad); color: var(--text-main); margin: 0; padding: 0 0 100px 0; min-height: 100vh; overscroll-behavior-y: none; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; padding-top: env(safe-area-inset-top); }
+        
+        .card {
+            background: var(--card-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); margin-bottom: 20px;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+
+        h1, h2, h3 { margin: 0; font-weight: 700; }
+        h2 { font-size: 1.2rem; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
+
+        input, select {
+            width: 100%; padding: 14px; margin-bottom: 12px; border: none;
+            background: rgba(0,0,0,0.04); border-radius: 12px; font-size: 16px; color: var(--text-main);
+            outline: none; transition: 0.2s;
+        }
+        [data-theme="dark"] input, [data-theme="dark"] select { background: rgba(255,255,255,0.08); }
+        input:focus { box-shadow: 0 0 0 2px var(--primary); background: transparent; }
+
+        .btn-main {
+            width: 100%; padding: 16px; background: var(--primary); color: white; border: none;
+            border-radius: 16px; font-size: 1rem; font-weight: 600; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4); transition: transform 0.1s;
+        }
+        .btn-main:active { transform: scale(0.98); }
+
+        .toggle-group { display: flex; background: rgba(0,0,0,0.04); padding: 4px; border-radius: 14px; margin-bottom: 15px; }
+        .toggle-btn { flex: 1; padding: 10px; text-align: center; border-radius: 12px; font-weight: 600; color: var(--text-sub); cursor: pointer; transition: 0.3s; }
+        .toggle-btn.active { background: white; color: var(--text-main); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        [data-theme="dark"] .toggle-btn.active { background: #334155; color: white; }
+        .toggle-btn.active.exp { color: var(--danger); }
+        .toggle-btn.active.inc { color: var(--success); }
+
+        .tx-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid rgba(0,0,0,0.05); }
+        .tx-icon { width: 40px; height: 40px; border-radius: 12px; background: rgba(79, 70, 229, 0.1); color: var(--primary); display: flex; align-items: center; justify-content: center; margin-right: 12px; font-weight: bold; }
+        .amount.in { color: var(--success); } .amount.out { color: var(--danger); }
+
+        .budget-bar-bg { height: 6px; background: rgba(0,0,0,0.1); border-radius: 3px; margin-top: 5px; overflow: hidden; position: relative; }
+        .budget-bar-fill { height: 100%; border-radius: 3px; transition: width 0.5s; }
+        .budget-info { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-sub); margin-top: 2px; }
+
+        .nav {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 500px;
+            background: rgba(255,255,255,0.9); backdrop-filter: blur(20px); border-radius: 30px;
+            display: flex; justify-content: space-around; padding: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.15); z-index: 100;
+            border: 1px solid rgba(255,255,255,0.2); padding-bottom: max(12px, env(safe-area-inset-bottom));
+        }
+        [data-theme="dark"] .nav { background: rgba(30, 41, 59, 0.9); border-color: rgba(255,255,255,0.1); }
+        .nav-item { text-align: center; color: var(--text-sub); font-size: 0.7rem; cursor: pointer; opacity: 0.7; transition: 0.2s; }
+        .nav-item.active { color: var(--primary); opacity: 1; font-weight: 600; transform: scale(1.1); }
+        .nav-icon { font-size: 1.4rem; display: block; margin-bottom: 2px; }
+
+        .page { display: none; }
+        .page.active { display: block; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from {opacity:0} to {opacity:1}}
+        
+        .budget-input-row { display: flex; align-items: center; margin-bottom: 8px; }
+        .budget-input-row span { flex: 1; font-weight: 500; }
+        .budget-input-row input { width: 100px; margin: 0; text-align: right; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <div>
+            <div style="font-size:0.8rem; opacity:0.7">總淨資產</div>
+            <h1 id="header-net-worth" style="font-size:1.8rem; background: linear-gradient(to right, var(--primary), #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">$0</h1>
+        </div>
+        <div onclick="toggleTheme()" style="font-size:1.5rem; cursor:pointer; background:rgba(0,0,0,0.05); width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center;">🌗</div>
+    </div>
+
+    <div id="page-home" class="page active">
+        <div class="card">
+            <div class="toggle-group">
+                <div class="toggle-btn active exp" onclick="setType('expense')">支出</div>
+                <div class="toggle-btn inc" onclick="setType('income')">收入</div>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <input type="date" id="date-input" style="flex:1">
+                <input type="number" id="amt-input" placeholder="金額" inputmode="decimal" style="flex:1; font-weight:bold;">
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                <select id="cat-select"></select>
+                <select id="acc-select"></select>
+            </div>
+            <input type="text" id="desc-input" placeholder="備註">
+            <button class="btn-main" onclick="addTx()">記帳</button>
+        </div>
+
+        <div class="card">
+            <h2>最近交易 <span style="font-size:0.8rem; color:var(--primary)" onclick="switchPage('list')">全部 ></span></h2>
+            <div id="recent-list"></div>
+        </div>
+    </div>
+
+    <div id="page-stats" class="page">
+        <div class="card">
+            <h2>📈 淨資產成長趨勢 (6個月)</h2>
+            <div style="height:200px"><canvas id="netWorthChart"></canvas></div>
+        </div>
+
+        <div class="card">
+            <h2>📊 預算與支出 (本月)</h2>
+            <div style="height:200px; margin-bottom:20px"><canvas id="pieChart"></canvas></div>
+            <div id="budget-list"></div>
+        </div>
+        
+        <div class="card">
+            <h2>💰 帳戶餘額</h2>
+            <div id="acc-list"></div>
+        </div>
+    </div>
+
+    <div id="page-list" class="page">
+        <div class="card">
+            <input type="text" id="search" placeholder="🔍 搜尋..." onkeyup="renderFullList()">
+            <div id="full-list"></div>
+        </div>
+    </div>
+
+    <div id="page-settings" class="page">
+        <div class="card">
+            <h2>🎯 設定每月預算</h2>
+            <p style="font-size:0.8rem; opacity:0.7; margin-bottom:15px">為每個分類設定上限，分析頁面會顯示進度。</p>
+            <div id="budget-settings"></div>
+        </div>
+
+        <div class="card">
+            <h2>⚙️ 分類與帳戶管理</h2>
+            <div style="margin-bottom:10px; font-weight:bold">分類</div>
+            <div style="display:flex; gap:5px; margin-bottom:10px">
+                <input id="new-cat" placeholder="新分類"><button onclick="addItem('categories','new-cat')" style="width:40px; border-radius:10px; border:none; background:var(--primary); color:white;">+</button>
+            </div>
+            <div id="manage-cats" style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:20px"></div>
+
+            <div style="margin-bottom:10px; font-weight:bold">帳戶</div>
+            <div style="display:flex; gap:5px; margin-bottom:10px">
+                <input id="new-acc" placeholder="新帳戶"><button onclick="addItem('accounts','new-acc')" style="width:40px; border-radius:10px; border:none; background:var(--primary); color:white;">+</button>
+            </div>
+            <div id="manage-accs" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
+        </div>
+
+        <div class="card">
+            <h2>💾 資料管理</h2>
+            <button class="btn-main" style="background:#10b981; margin-bottom:10px" onclick="exportCSV()">匯出 Excel (CSV)</button>
+            <button class="btn-main" style="background:#6b7280; margin-bottom:10px" onclick="exportJSON()">匯出備份 (JSON)</button>
+            <input type="file" onchange="importJSON(this)" style="margin-bottom:10px">
+            <button class="btn-main" style="background:var(--danger)" onclick="clearData()">⚠️ 清空所有資料</button>
+        </div>
+    </div>
+
+</div>
+
+<div class="nav">
+    <div class="nav-item active" onclick="switchPage('home', this)"><span class="nav-icon">🏠</span>記帳</div>
+    <div class="nav-item" onclick="switchPage('list', this)"><span class="nav-icon">📃</span>明細</div>
+    <div class="nav-item" onclick="switchPage('stats', this)"><span class="nav-icon">📊</span>分析</div>
+    <div class="nav-item" onclick="switchPage('settings', this)"><span class="nav-icon">⚙️</span>設定</div>
+</div>
+
+<script>
+    // --- 1. PWA Service Worker 註冊 (新功能) ---
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then(reg => console.log('SW 註冊成功!', reg))
+                .catch(err => console.log('SW 註冊失敗', err));
+        });
+    }
+
+    // --- 2. 核心邏輯 (App Logic) ---
+    const defaultData = {
+        txs: [],
+        settings: {
+            categories: ['餐飲', '交通', '購物', '娛樂', '居住', '薪水', '投資'],
+            accounts: ['現金', '銀行', '信用卡', '八達通'],
+            budgets: {}
+        },
+        theme: 'light'
+    };
+    let appData = JSON.parse(localStorage.getItem('finMasterV4')) || defaultData;
+    let currentType = 'expense';
+    let charts = {};
+
+    function init() {
+        document.getElementById('date-input').valueAsDate = new Date();
+        if(appData.theme) document.documentElement.setAttribute('data-theme', appData.theme);
+        updateUI();
+    }
+
+    function saveData() {
+        localStorage.setItem('finMasterV4', JSON.stringify(appData));
+        updateUI();
+    }
+
+    function updateUI() {
+        renderDropdowns();
+        renderRecent();
+        renderStats();
+        renderSettings();
+    }
+
+    // --- 記帳功能 ---
+    function setType(t) {
+        currentType = t;
+        document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+        document.querySelector(`.toggle-btn.${t}`).classList.add('active');
+    }
+
+    function addTx() {
+        const amt = parseFloat(document.getElementById('amt-input').value);
+        if(!amt) return alert('請輸入金額');
+        appData.txs.unshift({
+            id: Date.now(),
+            date: document.getElementById('date-input').value,
+            type: currentType,
+            amt: amt,
+            cat: document.getElementById('cat-select').value,
+            acc: document.getElementById('acc-select').value,
+            desc: document.getElementById('desc-input').value
+        });
+        saveData();
+        document.getElementById('amt-input').value = '';
+        document.getElementById('desc-input').value = '';
+        alert('已儲存');
+    }
+
+    // --- 分析功能 ---
+    function renderStats() {
+        const now = new Date();
+        const curMonth = now.toISOString().slice(0,7);
+        
+        // 帳戶與淨資產
+        let bals = {}; appData.settings.accounts.forEach(a=>bals[a]=0);
+        let netWorth = 0;
+        appData.txs.forEach(t => {
+            if(t.type==='income') bals[t.acc] += t.amt; else bals[t.acc] -= t.amt;
+        });
+        Object.values(bals).forEach(v => netWorth += v);
+        document.getElementById('header-net-worth').innerText = '$' + netWorth.toLocaleString();
+        
+        document.getElementById('acc-list').innerHTML = Object.entries(bals).map(([k,v]) => `
+            <div class="tx-item"><span>${k}</span><span style="font-weight:bold; color:${v>=0?'var(--success)':'var(--danger)'}">$${v.toLocaleString()}</span></div>
+        `).join('');
+
+        // 預算與分類
+        let catExp = {};
+        appData.txs.filter(t => t.date.startsWith(curMonth) && t.type === 'expense').forEach(t => {
+            catExp[t.cat] = (catExp[t.cat] || 0) + t.amt;
+        });
+
+        const sortedCats = Object.entries(catExp).sort((a,b)=>b[1]-a[1]);
+        document.getElementById('budget-list').innerHTML = sortedCats.map(([cat, val]) => {
+            const budget = appData.settings.budgets[cat] || 0;
+            const pct = budget > 0 ? Math.min((val/budget)*100, 100) : 0;
+            const barColor = (budget > 0 && val > budget) ? 'var(--danger)' : (pct > 80 ? 'var(--warning)' : 'var(--primary)');
+            const budgetText = budget > 0 ? `/ $${budget}` : '(未設預算)';
+            
+            return `
+            <div style="margin-bottom:12px">
+                <div style="display:flex; justify-content:space-between; font-weight:500">
+                    <span>${cat}</span><span>$${val} <small style="color:var(--text-sub)">${budgetText}</small></span>
+                </div>
+                ${budget > 0 ? `
+                <div class="budget-bar-bg">
+                    <div class="budget-bar-fill" style="width:${pct}%; background:${barColor}"></div>
+                </div>
+                <div class="budget-info" style="text-align:right">${Math.round(val/budget*100)}%</div>
+                ` : ''}
+            </div>`;
+        }).join('');
+
+        renderCharts(curMonth, sortedCats, netWorth);
+    }
+
+    function renderCharts(curMonth, sortedCats, currentNetWorth) {
+        if(charts.pie) charts.pie.destroy();
+        charts.pie = new Chart(document.getElementById('pieChart'), {
+            type: 'doughnut',
+            data: {
+                labels: sortedCats.map(x=>x[0]),
+                datasets: [{ data: sortedCats.map(x=>x[1]), backgroundColor: ['#4f46e5','#ef4444','#f59e0b','#10b981','#ec4899'], borderWidth:0 }]
+            },
+            options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'right'}} }
+        });
+
+        let labels = [], data = [];
+        const now = new Date();
+        for(let i=5; i>=0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth()-i+1, 0); 
+            const limitDate = d.toISOString().slice(0,10);
+            labels.push(d.toISOString().slice(5,7)+'月');
+            let w = 0;
+            appData.txs.forEach(t => {
+                if(t.date <= limitDate) w += (t.type==='income' ? t.amt : -t.amt);
+            });
+            data.push(w);
+        }
+
+        if(charts.line) charts.line.destroy();
+        charts.line = new Chart(document.getElementById('netWorthChart'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: '淨資產', data: data, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', fill: true, tension: 0.3
+                }]
+            },
+            options: { responsive:true, maintainAspectRatio:false, scales:{x:{grid:{display:false}}, y:{grid:{display:false}}} }
+        });
+    }
+
+    // --- 設定與其他 ---
+    function renderSettings() {
+        document.getElementById('budget-settings').innerHTML = appData.settings.categories.map(c => `
+            <div class="budget-input-row"><span>${c}</span><input type="number" value="${appData.settings.budgets[c]||''}" placeholder="0" onchange="setBudget('${c}', this.value)"></div>
+        `).join('');
+
+        const mkTag = (k, id) => document.getElementById(id).innerHTML = appData.settings[k].map(i => 
+            `<span style="padding:6px 12px; background:rgba(0,0,0,0.05); border-radius:8px; font-size:0.85rem; cursor:pointer" onclick="delItem('${k}','${i}')">${i} ×</span>`
+        ).join('');
+        mkTag('categories', 'manage-cats');
+        mkTag('accounts', 'manage-accs');
+    }
+
+    function setBudget(cat, val) { appData.settings.budgets[cat] = parseFloat(val); saveData(); }
+    function switchPage(p, btn) {
+        document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
+        document.getElementById('page-'+p).classList.add('active');
+        if(btn) { document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active')); btn.classList.add('active'); }
+        if(p==='stats') renderStats();
+    }
+    function renderDropdowns() {
+        const f = (id,l) => document.getElementById(id).innerHTML = l.map(i=>`<option value="${i}">${i}</option>`).join('');
+        f('cat-select', appData.settings.categories);
+        f('acc-select', appData.settings.accounts);
+    }
+    function renderRecent() { document.getElementById('recent-list').innerHTML = appData.txs.slice(0,5).map(t => txHtml(t)).join(''); }
+    function renderFullList() {
+        const k = document.getElementById('search').value.toLowerCase();
+        const res = appData.txs.filter(t => t.cat.includes(k) || (t.desc&&t.desc.includes(k)) || t.amt.toString().includes(k));
+        document.getElementById('full-list').innerHTML = res.slice(0,50).map(t => txHtml(t)).join('');
+    }
+    function txHtml(t) {
+        return `<div class="tx-item" onclick="if(confirm('刪除?')){ appData.txs=appData.txs.filter(x=>x.id!==${t.id}); saveData(); }">
+            <div style="display:flex; align-items:center">
+                <div class="tx-icon">${t.cat[0]}</div>
+                <div><div style="font-weight:600">${t.cat} <small style="font-weight:normal;opacity:0.6">${t.desc||''}</small></div><div style="font-size:0.8rem;opacity:0.5">${t.date} · ${t.acc}</div></div>
+            </div>
+            <div class="amount ${t.type==='income'?'in':'out'}">${t.type==='income'?'+':'-'}$${t.amt}</div>
+        </div>`;
+    }
+    function addItem(k, id) { const v=document.getElementById(id).value; if(v){ appData.settings[k].push(v); saveData(); document.getElementById(id).value=''; }}
+    function delItem(k, v) { if(confirm('刪除?')) { appData.settings[k]=appData.settings[k].filter(i=>i!==v); saveData(); }}
+    function toggleTheme() { appData.theme = appData.theme==='light'?'dark':'light'; saveData(); document.documentElement.setAttribute('data-theme', appData.theme); }
+    function clearData() { if(confirm('確定清除?')) { localStorage.removeItem('finMasterV4'); location.reload(); }}
+    function exportJSON() {
+        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(appData)],{type:'application/json'}));
+        a.download='backup.json'; a.click();
+    }
+    function importJSON(el) {
+        const r = new FileReader(); r.onload=e=>{ try{appData=JSON.parse(e.target.result); saveData(); location.reload();}catch(e){alert('錯誤')}};
+        r.readAsText(el.files[0]);
+    }
+    function exportCSV() {
+        let csvContent = "\uFEFF日期,類型,金額,分類,帳戶,備註\n";
+        appData.txs.forEach(t => {
+            let row = `${t.date},${t.type==='expense'?'支出':'收入'},${t.amt},${t.cat},${t.acc},${t.desc||''}`;
+            csvContent += row + "\n";
+        });
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `finance_export_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+    }
+
+    init();
+</script>
+</body>
+</html>
