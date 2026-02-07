@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Finance Master PWA</title>
+    <title>Finance Master v5</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#4f46e5">
     <link rel="apple-touch-icon" href="icon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -21,6 +20,7 @@
             --success: #10b981;
             --danger: #ef4444;
             --warning: #f59e0b;
+            --transfer: #8b5cf6; /* 紫色用於轉帳 */
             --bg-grad: linear-gradient(135deg, #f0f2f5 0%, #e0e7ff 100%);
             --card-bg: rgba(255, 255, 255, 0.85);
             --text-main: #111827;
@@ -57,7 +57,7 @@
             outline: none; transition: 0.2s;
         }
         [data-theme="dark"] input, [data-theme="dark"] select { background: rgba(255,255,255,0.08); }
-        input:focus { box-shadow: 0 0 0 2px var(--primary); background: transparent; }
+        input:focus, select:focus { box-shadow: 0 0 0 2px var(--primary); background: transparent; }
 
         .btn-main {
             width: 100%; padding: 16px; background: var(--primary); color: white; border: none;
@@ -66,21 +66,29 @@
         }
         .btn-main:active { transform: scale(0.98); }
 
+        /* 切換按鈕組 */
         .toggle-group { display: flex; background: rgba(0,0,0,0.04); padding: 4px; border-radius: 14px; margin-bottom: 15px; }
-        .toggle-btn { flex: 1; padding: 10px; text-align: center; border-radius: 12px; font-weight: 600; color: var(--text-sub); cursor: pointer; transition: 0.3s; }
+        .toggle-btn { flex: 1; padding: 10px; text-align: center; border-radius: 12px; font-weight: 600; color: var(--text-sub); cursor: pointer; transition: 0.3s; font-size: 0.9rem; }
         .toggle-btn.active { background: white; color: var(--text-main); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
         [data-theme="dark"] .toggle-btn.active { background: #334155; color: white; }
-        .toggle-btn.active.exp { color: var(--danger); }
-        .toggle-btn.active.inc { color: var(--success); }
+        
+        /* 狀態顏色 */
+        .toggle-btn.active.expense { color: var(--danger); }
+        .toggle-btn.active.income { color: var(--success); }
+        .toggle-btn.active.transfer { color: var(--transfer); }
 
         .tx-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid rgba(0,0,0,0.05); }
-        .tx-icon { width: 40px; height: 40px; border-radius: 12px; background: rgba(79, 70, 229, 0.1); color: var(--primary); display: flex; align-items: center; justify-content: center; margin-right: 12px; font-weight: bold; }
-        .amount.in { color: var(--success); } .amount.out { color: var(--danger); }
+        .tx-icon { width: 40px; height: 40px; border-radius: 12px; background: rgba(79, 70, 229, 0.1); color: var(--primary); display: flex; align-items: center; justify-content: center; margin-right: 12px; font-weight: bold; font-size: 1.1rem; }
+        
+        .amount.in { color: var(--success); } 
+        .amount.out { color: var(--danger); }
+        .amount.tr { color: var(--transfer); }
 
         .budget-bar-bg { height: 6px; background: rgba(0,0,0,0.1); border-radius: 3px; margin-top: 5px; overflow: hidden; position: relative; }
         .budget-bar-fill { height: 100%; border-radius: 3px; transition: width 0.5s; }
         .budget-info { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-sub); margin-top: 2px; }
 
+        /* 導航 */
         .nav {
             position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 500px;
             background: rgba(255,255,255,0.9); backdrop-filter: blur(20px); border-radius: 30px;
@@ -99,6 +107,9 @@
         .budget-input-row { display: flex; align-items: center; margin-bottom: 8px; }
         .budget-input-row span { flex: 1; font-weight: 500; }
         .budget-input-row input { width: 100px; margin: 0; text-align: right; }
+
+        /* 轉帳專用標籤 */
+        .input-label { font-size: 0.8rem; color: var(--text-sub); margin-bottom: 4px; display: block; }
     </style>
 </head>
 <body>
@@ -116,18 +127,39 @@
     <div id="page-home" class="page active">
         <div class="card">
             <div class="toggle-group">
-                <div class="toggle-btn active exp" onclick="setType('expense')">支出</div>
-                <div class="toggle-btn inc" onclick="setType('income')">收入</div>
+                <div class="toggle-btn active expense" onclick="setType('expense')">支出</div>
+                <div class="toggle-btn income" onclick="setType('income')">收入</div>
+                <div class="toggle-btn transfer" onclick="setType('transfer')">轉帳</div>
             </div>
+            
             <div style="display:flex; gap:10px;">
                 <input type="date" id="date-input" style="flex:1">
                 <input type="number" id="amt-input" placeholder="金額" inputmode="decimal" style="flex:1; font-weight:bold;">
             </div>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                <select id="cat-select"></select>
-                <select id="acc-select"></select>
+
+            <div id="normal-inputs" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                <div>
+                    <span class="input-label">分類</span>
+                    <select id="cat-select"></select>
+                </div>
+                <div>
+                    <span class="input-label">帳戶</span>
+                    <select id="acc-select"></select>
+                </div>
             </div>
-            <input type="text" id="desc-input" placeholder="備註">
+
+            <div id="transfer-inputs" style="display:none; grid-template-columns:1fr 1fr; gap:10px;">
+                <div>
+                    <span class="input-label">從 (轉出)</span>
+                    <select id="from-acc-select"></select>
+                </div>
+                <div>
+                    <span class="input-label">到 (轉入)</span>
+                    <select id="to-acc-select"></select>
+                </div>
+            </div>
+            
+            <input type="text" id="desc-input" placeholder="備註" style="margin-top:10px">
             <button class="btn-main" onclick="addTx()">記帳</button>
         </div>
 
@@ -203,16 +235,14 @@
 </div>
 
 <script>
-    // --- 1. PWA Service Worker 註冊 (新功能) ---
+    // --- 1. Service Worker 註冊 ---
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js')
-                .then(reg => console.log('SW 註冊成功!', reg))
-                .catch(err => console.log('SW 註冊失敗', err));
+            navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW Fail', err));
         });
     }
 
-    // --- 2. 核心邏輯 (App Logic) ---
+    // --- 2. 核心邏輯 ---
     const defaultData = {
         txs: [],
         settings: {
@@ -222,7 +252,7 @@
         },
         theme: 'light'
     };
-    let appData = JSON.parse(localStorage.getItem('finMasterV4')) || defaultData;
+    let appData = JSON.parse(localStorage.getItem('finMasterV5')) || defaultData; // 升級為 V5
     let currentType = 'expense';
     let charts = {};
 
@@ -233,7 +263,7 @@
     }
 
     function saveData() {
-        localStorage.setItem('finMasterV4', JSON.stringify(appData));
+        localStorage.setItem('finMasterV5', JSON.stringify(appData));
         updateUI();
     }
 
@@ -244,50 +274,99 @@
         renderSettings();
     }
 
-    // --- 記帳功能 ---
+    // --- 記帳功能 (修復與轉帳) ---
     function setType(t) {
         currentType = t;
+        // 1. 更新按鈕樣式 (修復 class 不對應的問題)
         document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
         document.querySelector(`.toggle-btn.${t}`).classList.add('active');
+
+        // 2. 切換輸入介面 (轉帳 vs 一般)
+        if(t === 'transfer') {
+            document.getElementById('normal-inputs').style.display = 'none';
+            document.getElementById('transfer-inputs').style.display = 'grid';
+        } else {
+            document.getElementById('normal-inputs').style.display = 'grid';
+            document.getElementById('transfer-inputs').style.display = 'none';
+        }
     }
 
     function addTx() {
         const amt = parseFloat(document.getElementById('amt-input').value);
         if(!amt) return alert('請輸入金額');
-        appData.txs.unshift({
+
+        let newTx = {
             id: Date.now(),
             date: document.getElementById('date-input').value,
             type: currentType,
             amt: amt,
-            cat: document.getElementById('cat-select').value,
-            acc: document.getElementById('acc-select').value,
             desc: document.getElementById('desc-input').value
-        });
+        };
+
+        if (currentType === 'transfer') {
+            const fromAcc = document.getElementById('from-acc-select').value;
+            const toAcc = document.getElementById('to-acc-select').value;
+            
+            if (fromAcc === toAcc) return alert('轉出與轉入帳戶不能相同');
+            
+            newTx.cat = '轉帳'; // 轉帳固定分類
+            newTx.acc = fromAcc; // 記錄從哪裡轉
+            newTx.to_acc = toAcc; // 記錄轉去哪
+            
+            if (!newTx.desc) newTx.desc = `${fromAcc} -> ${toAcc}`;
+        } else {
+            newTx.cat = document.getElementById('cat-select').value;
+            newTx.acc = document.getElementById('acc-select').value;
+        }
+
+        appData.txs.unshift(newTx);
         saveData();
+        
+        // 重置
         document.getElementById('amt-input').value = '';
         document.getElementById('desc-input').value = '';
-        alert('已儲存');
+        
+        // 動畫反饋
+        const btn = document.querySelector('.btn-main');
+        const originalText = btn.innerText;
+        btn.innerText = '✅ 已記錄';
+        btn.style.background = '#10b981';
+        setTimeout(() => {
+            btn.innerText = originalText;
+            btn.style.background = '';
+        }, 1000);
     }
 
-    // --- 分析功能 ---
+    // --- 分析功能 (含轉帳邏輯) ---
     function renderStats() {
         const now = new Date();
         const curMonth = now.toISOString().slice(0,7);
         
-        // 帳戶與淨資產
+        // 1. 計算餘額 (處理轉帳)
         let bals = {}; appData.settings.accounts.forEach(a=>bals[a]=0);
         let netWorth = 0;
+        
         appData.txs.forEach(t => {
-            if(t.type==='income') bals[t.acc] += t.amt; else bals[t.acc] -= t.amt;
+            if(t.type === 'income') {
+                bals[t.acc] += t.amt;
+            } else if(t.type === 'expense') {
+                bals[t.acc] -= t.amt;
+            } else if(t.type === 'transfer') {
+                // 轉帳邏輯：從acc扣，加到to_acc
+                if(bals[t.acc] !== undefined) bals[t.acc] -= t.amt;
+                if(bals[t.to_acc] !== undefined) bals[t.to_acc] += t.amt;
+            }
         });
+        
         Object.values(bals).forEach(v => netWorth += v);
         document.getElementById('header-net-worth').innerText = '$' + netWorth.toLocaleString();
         
+        // 顯示帳戶列表
         document.getElementById('acc-list').innerHTML = Object.entries(bals).map(([k,v]) => `
             <div class="tx-item"><span>${k}</span><span style="font-weight:bold; color:${v>=0?'var(--success)':'var(--danger)'}">$${v.toLocaleString()}</span></div>
         `).join('');
 
-        // 預算與分類
+        // 2. 預算與分類 (排除轉帳)
         let catExp = {};
         appData.txs.filter(t => t.date.startsWith(curMonth) && t.type === 'expense').forEach(t => {
             catExp[t.cat] = (catExp[t.cat] || 0) + t.amt;
@@ -314,31 +393,38 @@
             </div>`;
         }).join('');
 
-        renderCharts(curMonth, sortedCats, netWorth);
+        renderCharts(curMonth, sortedCats);
     }
 
-    function renderCharts(curMonth, sortedCats, currentNetWorth) {
+    function renderCharts(curMonth, sortedCats) {
         if(charts.pie) charts.pie.destroy();
         charts.pie = new Chart(document.getElementById('pieChart'), {
             type: 'doughnut',
             data: {
                 labels: sortedCats.map(x=>x[0]),
-                datasets: [{ data: sortedCats.map(x=>x[1]), backgroundColor: ['#4f46e5','#ef4444','#f59e0b','#10b981','#ec4899'], borderWidth:0 }]
+                datasets: [{ data: sortedCats.map(x=>x[1]), backgroundColor: ['#4f46e5','#ef4444','#f59e0b','#10b981','#ec4899','#8b5cf6'], borderWidth:0 }]
             },
             options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'right'}} }
         });
 
+        // 淨資產趨勢 (計算邏輯簡化：當前總資產 - 之後的變動)
         let labels = [], data = [];
         const now = new Date();
         for(let i=5; i>=0; i--) {
             const d = new Date(now.getFullYear(), now.getMonth()-i+1, 0); 
             const limitDate = d.toISOString().slice(0,10);
             labels.push(d.toISOString().slice(5,7)+'月');
-            let w = 0;
+            
+            // 重新計算截至該日期的餘額
+            let tempNetWorth = 0;
             appData.txs.forEach(t => {
-                if(t.date <= limitDate) w += (t.type==='income' ? t.amt : -t.amt);
+                if(t.date <= limitDate) {
+                    if(t.type === 'income') tempNetWorth += t.amt;
+                    if(t.type === 'expense') tempNetWorth -= t.amt;
+                    // 轉帳不影響總淨資產
+                }
             });
-            data.push(w);
+            data.push(tempNetWorth);
         }
 
         if(charts.line) charts.line.destroy();
@@ -354,50 +440,64 @@
         });
     }
 
-    // --- 設定與其他 ---
+    // --- UI 輔助 ---
+    function renderDropdowns() {
+        const f = (id,l) => document.getElementById(id).innerHTML = l.map(i=>`<option value="${i}">${i}</option>`).join('');
+        f('cat-select', appData.settings.categories);
+        f('acc-select', appData.settings.accounts);
+        f('from-acc-select', appData.settings.accounts);
+        f('to-acc-select', appData.settings.accounts);
+    }
+
+    function txHtml(t) {
+        let icon = t.cat ? t.cat[0] : '⇄';
+        let sub = t.type === 'transfer' ? `${t.acc} → ${t.to_acc}` : `${t.date} · ${t.acc}`;
+        let amtClass = t.type === 'income' ? 'in' : (t.type === 'transfer' ? 'tr' : 'out');
+        let sign = t.type === 'income' ? '+' : (t.type === 'transfer' ? '' : '-');
+        
+        return `<div class="tx-item" onclick="if(confirm('刪除?')){ appData.txs=appData.txs.filter(x=>x.id!==${t.id}); saveData(); }">
+            <div style="display:flex; align-items:center">
+                <div class="tx-icon" style="${t.type==='transfer'?'color:var(--transfer);background:rgba(139,92,246,0.1)':''}">${icon}</div>
+                <div>
+                    <div style="font-weight:600">${t.cat} <small style="font-weight:normal;opacity:0.6">${t.desc||''}</small></div>
+                    <div style="font-size:0.8rem;opacity:0.5">${sub}</div>
+                </div>
+            </div>
+            <div class="amount ${amtClass}">${sign}$${t.amt}</div>
+        </div>`;
+    }
+
+    function renderRecent() { document.getElementById('recent-list').innerHTML = appData.txs.slice(0,5).map(t => txHtml(t)).join(''); }
+    
+    function renderFullList() {
+        const k = document.getElementById('search').value.toLowerCase();
+        const res = appData.txs.filter(t => t.cat.includes(k) || (t.desc&&t.desc.includes(k)) || t.amt.toString().includes(k));
+        document.getElementById('full-list').innerHTML = res.slice(0,50).map(t => txHtml(t)).join('');
+    }
+
+    // --- 設定 ---
     function renderSettings() {
         document.getElementById('budget-settings').innerHTML = appData.settings.categories.map(c => `
             <div class="budget-input-row"><span>${c}</span><input type="number" value="${appData.settings.budgets[c]||''}" placeholder="0" onchange="setBudget('${c}', this.value)"></div>
         `).join('');
-
         const mkTag = (k, id) => document.getElementById(id).innerHTML = appData.settings[k].map(i => 
             `<span style="padding:6px 12px; background:rgba(0,0,0,0.05); border-radius:8px; font-size:0.85rem; cursor:pointer" onclick="delItem('${k}','${i}')">${i} ×</span>`
         ).join('');
-        mkTag('categories', 'manage-cats');
-        mkTag('accounts', 'manage-accs');
+        mkTag('categories', 'manage-cats'); mkTag('accounts', 'manage-accs');
     }
-
-    function setBudget(cat, val) { appData.settings.budgets[cat] = parseFloat(val); saveData(); }
+    function setBudget(c, v) { appData.settings.budgets[c] = parseFloat(v); saveData(); }
+    function addItem(k, id) { const v=document.getElementById(id).value; if(v){ appData.settings[k].push(v); saveData(); document.getElementById(id).value=''; }}
+    function delItem(k, v) { if(confirm('刪除?')) { appData.settings[k]=appData.settings[k].filter(i=>i!==v); saveData(); }}
+    
+    // --- 系統功能 ---
     function switchPage(p, btn) {
         document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
         document.getElementById('page-'+p).classList.add('active');
         if(btn) { document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active')); btn.classList.add('active'); }
         if(p==='stats') renderStats();
     }
-    function renderDropdowns() {
-        const f = (id,l) => document.getElementById(id).innerHTML = l.map(i=>`<option value="${i}">${i}</option>`).join('');
-        f('cat-select', appData.settings.categories);
-        f('acc-select', appData.settings.accounts);
-    }
-    function renderRecent() { document.getElementById('recent-list').innerHTML = appData.txs.slice(0,5).map(t => txHtml(t)).join(''); }
-    function renderFullList() {
-        const k = document.getElementById('search').value.toLowerCase();
-        const res = appData.txs.filter(t => t.cat.includes(k) || (t.desc&&t.desc.includes(k)) || t.amt.toString().includes(k));
-        document.getElementById('full-list').innerHTML = res.slice(0,50).map(t => txHtml(t)).join('');
-    }
-    function txHtml(t) {
-        return `<div class="tx-item" onclick="if(confirm('刪除?')){ appData.txs=appData.txs.filter(x=>x.id!==${t.id}); saveData(); }">
-            <div style="display:flex; align-items:center">
-                <div class="tx-icon">${t.cat[0]}</div>
-                <div><div style="font-weight:600">${t.cat} <small style="font-weight:normal;opacity:0.6">${t.desc||''}</small></div><div style="font-size:0.8rem;opacity:0.5">${t.date} · ${t.acc}</div></div>
-            </div>
-            <div class="amount ${t.type==='income'?'in':'out'}">${t.type==='income'?'+':'-'}$${t.amt}</div>
-        </div>`;
-    }
-    function addItem(k, id) { const v=document.getElementById(id).value; if(v){ appData.settings[k].push(v); saveData(); document.getElementById(id).value=''; }}
-    function delItem(k, v) { if(confirm('刪除?')) { appData.settings[k]=appData.settings[k].filter(i=>i!==v); saveData(); }}
     function toggleTheme() { appData.theme = appData.theme==='light'?'dark':'light'; saveData(); document.documentElement.setAttribute('data-theme', appData.theme); }
-    function clearData() { if(confirm('確定清除?')) { localStorage.removeItem('finMasterV4'); location.reload(); }}
+    function clearData() { if(confirm('確定清除?')) { localStorage.removeItem('finMasterV5'); location.reload(); }}
     function exportJSON() {
         const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(appData)],{type:'application/json'}));
         a.download='backup.json'; a.click();
@@ -407,15 +507,18 @@
         r.readAsText(el.files[0]);
     }
     function exportCSV() {
-        let csvContent = "\uFEFF日期,類型,金額,分類,帳戶,備註\n";
+        let csvContent = "\uFEFF日期,類型,金額,分類/來源,帳戶/目的,備註\n";
         appData.txs.forEach(t => {
-            let row = `${t.date},${t.type==='expense'?'支出':'收入'},${t.amt},${t.cat},${t.acc},${t.desc||''}`;
+            let catCol = t.type==='transfer' ? t.acc : t.cat;
+            let accCol = t.type==='transfer' ? t.to_acc : t.acc;
+            let typeName = t.type==='expense'?'支出':(t.type==='income'?'收入':'轉帳');
+            let row = `${t.date},${typeName},${t.amt},${catCol},${accCol},${t.desc||''}`;
             csvContent += row + "\n";
         });
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url; a.download = `finance_export_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+        a.href = url; a.download = `finance_export.csv`; a.click();
     }
 
     init();
