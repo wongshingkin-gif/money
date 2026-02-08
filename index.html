@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Finance Master V7</title>
+    <title>Finance Master V7.1</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#4f46e5">
@@ -107,7 +107,7 @@
             display: none; animation: slideDown 0.3s ease;
         }
 
-        /* 月份導航列 (V7 新增) */
+        /* 月份導航列 */
         .month-nav {
             display: flex; justify-content: space-between; align-items: center;
             background: rgba(0,0,0,0.05); padding: 5px; border-radius: 12px; margin-bottom: 15px;
@@ -128,10 +128,7 @@
 <div class="container">
     
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-        <div>
-            <div style="font-size:0.8rem; opacity:0.7">總淨資產</div>
-            <h1 id="header-net-worth" style="font-size:1.8rem; background: linear-gradient(to right, var(--primary), #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">$0</h1>
-        </div>
+        <h1 style="font-size:1.5rem; background: linear-gradient(to right, var(--primary), #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Finance Master</h1>
         <div onclick="toggleTheme()" style="font-size:1.5rem; cursor:pointer; background:rgba(0,0,0,0.05); width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center;">🌗</div>
     </div>
 
@@ -193,7 +190,10 @@
         </div>
         
         <div class="card">
-            <h2>💰 帳戶餘額 (當前)</h2>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h2>💰 帳戶餘額</h2>
+                <div style="font-size:0.9rem; color:var(--text-sub)">總計: <span id="stats-total-worth" style="font-weight:bold; color:var(--primary)">$0</span></div>
+            </div>
             <div id="acc-list"></div>
         </div>
     </div>
@@ -263,12 +263,11 @@
         },
         theme: 'light'
     };
-    // V7 資料讀取
+    
+    // V7.1 資料讀取
     let appData = JSON.parse(localStorage.getItem('finMasterV7')) || JSON.parse(localStorage.getItem('finMasterV6')) || defaultData;
     let currentType = 'expense';
     let charts = {};
-    
-    // V7 新增: 當前分析的月份 (預設為今天)
     let analysisDate = new Date(); 
 
     function init() {
@@ -277,15 +276,20 @@
         updateUI();
     }
 
+    // V7.1: 強化儲存功能 (加入錯誤偵測)
     function saveData() {
-        localStorage.setItem('finMasterV7', JSON.stringify(appData));
-        updateUI();
+        try {
+            localStorage.setItem('finMasterV7', JSON.stringify(appData));
+            updateUI();
+        } catch (e) {
+            alert('⚠️ 儲存失敗！\n您的手機儲存空間可能已滿，或處於私密瀏覽模式。\n請嘗試匯出備份以免資料遺失。');
+            console.error('Save failed:', e);
+        }
     }
 
     function updateUI() {
         renderDropdowns();
         renderRecent();
-        // 如果目前在分析頁面，需要根據 analysisDate 更新
         if(document.getElementById('page-stats').classList.contains('active')) {
             renderStats(); 
         }
@@ -341,29 +345,24 @@
         setTimeout(() => { btn.innerText = originalText; btn.style.background = ''; }, 1000);
     }
 
-    // --- 分析邏輯 (V7 更新：月份切換 & 環比) ---
-    
-    // 切換月份按鈕功能
+    // --- 分析邏輯 ---
     function changeMonth(offset) {
         analysisDate.setMonth(analysisDate.getMonth() + offset);
         renderStats();
     }
 
     function renderStats() {
-        // 1. 取得當前選擇的月份字串 (YYYY-MM)
         const y = analysisDate.getFullYear();
         const m = String(analysisDate.getMonth() + 1).padStart(2, '0');
         const selectedMonth = `${y}-${m}`;
         
-        // 更新顯示
         document.getElementById('analysis-month-display').innerText = selectedMonth;
 
-        // 2. 計算 上個月 的字串 (用於比較)
         const prevDate = new Date(analysisDate);
         prevDate.setMonth(prevDate.getMonth() - 1);
         const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
 
-        // 3. 計算 淨資產 (全時間累計)
+        // 計算餘額與淨資產
         let bals = {}; appData.settings.accounts.forEach(a=>bals[a]=0);
         let netWorth = 0;
         appData.txs.forEach(t => {
@@ -375,12 +374,15 @@
             }
         });
         Object.values(bals).forEach(v => netWorth += v);
-        document.getElementById('header-net-worth').innerText = '$' + netWorth.toLocaleString();
+        
+        // V7.1: 更新分析頁面的總資產
+        document.getElementById('stats-total-worth').innerText = '$' + netWorth.toLocaleString();
+        
         document.getElementById('acc-list').innerHTML = Object.entries(bals).map(([k,v]) => `
             <div class="tx-item"><span>${k}</span><span style="font-weight:bold; color:${v>=0?'var(--success)':'var(--danger)'}">$${v.toLocaleString()}</span></div>
         `).join('');
 
-        // 4. 計算支出 (本月 vs 上月)
+        // 計算開支比較
         let catExp = {};
         let totalMonthExp = 0;
         let totalPrevExp = 0;
@@ -396,14 +398,12 @@
             }
         });
 
-        // 顯示本月總支出
         document.getElementById('month-total-exp').innerText = '$' + totalMonthExp.toLocaleString();
 
-        // 顯示比較結果
         const badge = document.getElementById('compare-badge');
         const diff = totalMonthExp - totalPrevExp;
         if(totalPrevExp === 0) {
-            badge.style.display = 'none'; // 上個月沒數據就不比了
+            badge.style.display = 'none'; 
         } else {
             badge.style.display = 'inline-block';
             if(diff > 0) {
@@ -419,7 +419,6 @@
             }
         }
 
-        // 5. 更新列表與圖表
         const sortedCats = Object.entries(catExp).sort((a,b)=>b[1]-a[1]);
         
         document.getElementById('category-list').innerHTML = sortedCats.map(([cat, val]) => {
@@ -441,7 +440,6 @@
     }
 
     function renderCharts(sortedCats) {
-        // 圓餅圖 (隨月份變動)
         if(charts.pie) charts.pie.destroy();
         charts.pie = new Chart(document.getElementById('pieChart'), {
             type: 'doughnut',
@@ -456,9 +454,8 @@
             options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'right'}} }
         });
 
-        // 淨資產線圖 (長期趨勢，不隨月份切換而只顯示該月，顯示全域趨勢比較合理)
         let labels = [], data = [];
-        const now = new Date(); // 線圖固定顯示包含今天的最近6個月
+        const now = new Date();
         for(let i=5; i>=0; i--) {
             const d = new Date(now.getFullYear(), now.getMonth()-i+1, 0); 
             const limitDate = d.toISOString().slice(0,10);
