@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Finance Master V7.1</title>
+    <title>Simon的理財大師 V7.2</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#4f46e5">
@@ -107,7 +107,7 @@
             display: none; animation: slideDown 0.3s ease;
         }
 
-        /* 月份導航列 */
+        /* V7: 月份導航列 */
         .month-nav {
             display: flex; justify-content: space-between; align-items: center;
             background: rgba(0,0,0,0.05); padding: 5px; border-radius: 12px; margin-bottom: 15px;
@@ -128,11 +128,17 @@
 <div class="container">
     
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-        <h1 style="font-size:1.5rem; background: linear-gradient(to right, var(--primary), #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Finance Master</h1>
+        <h1 style="font-size:1.5rem; background: linear-gradient(to right, var(--primary), #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Simon的理財大師</h1>
         <div onclick="toggleTheme()" style="font-size:1.5rem; cursor:pointer; background:rgba(0,0,0,0.05); width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center;">🌗</div>
     </div>
 
     <div id="page-home" class="page active">
+        
+        <div class="card" style="background: linear-gradient(to right, #4f46e5, #818cf8); color: white;">
+            <div style="font-size:0.9rem; opacity:0.9">本月暫時總開支</div>
+            <div id="home-month-total" style="font-size:2rem; font-weight:bold">$0</div>
+        </div>
+
         <div class="card">
             <div class="toggle-group">
                 <div class="toggle-btn active expense" onclick="setType('expense')">支出</div>
@@ -264,7 +270,7 @@
         theme: 'light'
     };
     
-    // V7.1 資料讀取
+    // V7.2 資料讀取
     let appData = JSON.parse(localStorage.getItem('finMasterV7')) || JSON.parse(localStorage.getItem('finMasterV6')) || defaultData;
     let currentType = 'expense';
     let charts = {};
@@ -276,7 +282,6 @@
         updateUI();
     }
 
-    // V7.1: 強化儲存功能 (加入錯誤偵測)
     function saveData() {
         try {
             localStorage.setItem('finMasterV7', JSON.stringify(appData));
@@ -290,10 +295,27 @@
     function updateUI() {
         renderDropdowns();
         renderRecent();
+        // V7.2: 每次更新UI都計算主頁的本月支出
+        calcHomeStats();
+
         if(document.getElementById('page-stats').classList.contains('active')) {
             renderStats(); 
         }
         renderSettings();
+    }
+
+    // V7.2: 計算主頁的「本月暫時總開支」
+    function calcHomeStats() {
+        const now = new Date();
+        const currentMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        
+        let total = 0;
+        appData.txs.forEach(t => {
+            if (t.type === 'expense' && t.date.startsWith(currentMonthPrefix)) {
+                total += t.amt;
+            }
+        });
+        document.getElementById('home-month-total').innerText = '$' + total.toLocaleString();
     }
 
     // --- 記帳邏輯 ---
@@ -315,9 +337,18 @@
         const amt = parseFloat(document.getElementById('amt-input').value);
         if(!amt) return alert('請輸入金額');
 
+        // V7.2: 自動記錄時分秒
+        // 取得使用者選的日期 (YYYY-MM-DD)
+        const dateInput = document.getElementById('date-input').value;
+        // 取得當下時間 (HH:mm:ss)
+        const now = new Date();
+        const timePart = now.toTimeString().split(' ')[0];
+        // 組合 (YYYY-MM-DD HH:mm:ss)
+        const finalDate = `${dateInput} ${timePart}`;
+
         let newTx = {
             id: Date.now(),
-            date: document.getElementById('date-input').value,
+            date: finalDate, // 這裡存入完整時間
             type: currentType,
             amt: amt,
             desc: document.getElementById('desc-input').value
@@ -362,7 +393,6 @@
         prevDate.setMonth(prevDate.getMonth() - 1);
         const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
 
-        // 計算餘額與淨資產
         let bals = {}; appData.settings.accounts.forEach(a=>bals[a]=0);
         let netWorth = 0;
         appData.txs.forEach(t => {
@@ -375,14 +405,12 @@
         });
         Object.values(bals).forEach(v => netWorth += v);
         
-        // V7.1: 更新分析頁面的總資產
         document.getElementById('stats-total-worth').innerText = '$' + netWorth.toLocaleString();
         
         document.getElementById('acc-list').innerHTML = Object.entries(bals).map(([k,v]) => `
             <div class="tx-item"><span>${k}</span><span style="font-weight:bold; color:${v>=0?'var(--success)':'var(--danger)'}">$${v.toLocaleString()}</span></div>
         `).join('');
 
-        // 計算開支比較
         let catExp = {};
         let totalMonthExp = 0;
         let totalPrevExp = 0;
@@ -462,7 +490,8 @@
             labels.push(d.toISOString().slice(5,7)+'月');
             let tempNetWorth = 0;
             appData.txs.forEach(t => {
-                if(t.date <= limitDate) {
+                // 比較時只用日期部分 (前10位)
+                if(t.date.slice(0,10) <= limitDate) {
                     if(t.type === 'income') tempNetWorth += t.amt;
                     if(t.type === 'expense') tempNetWorth -= t.amt;
                 }
@@ -508,7 +537,8 @@
 
     function txHtml(t) {
         let icon = t.cat ? t.cat[0] : '⇄';
-        let sub = t.type === 'transfer' ? `${t.acc} → ${t.to_acc}` : `${t.date} · ${t.acc}`;
+        // V7.2: 在明細中顯示完整時間
+        let sub = t.type === 'transfer' ? `${t.acc} → ${t.to_acc}` : `${t.date.slice(0,16)} · ${t.acc}`; // slice(0,16) 去掉秒數，顯示到分
         let amtClass = t.type === 'income' ? 'in' : (t.type === 'transfer' ? 'tr' : 'out');
         let sign = t.type === 'income' ? '+' : (t.type === 'transfer' ? '' : '-');
         
@@ -555,11 +585,12 @@
         r.readAsText(el.files[0]);
     }
     function exportCSV() {
-        let csvContent = "\uFEFF日期,類型,金額,分類/來源,帳戶/目的,備註\n";
+        let csvContent = "\uFEFF日期時間,類型,金額,分類/來源,帳戶/目的,備註\n";
         appData.txs.forEach(t => {
             let catCol = t.type==='transfer' ? t.acc : t.cat;
             let accCol = t.type==='transfer' ? t.to_acc : t.acc;
             let typeName = t.type==='expense'?'支出':(t.type==='income'?'收入':'轉帳');
+            // V7.2: CSV 也包含完整時間
             let row = `${t.date},${typeName},${t.amt},${catCol},${accCol},${t.desc||''}`;
             csvContent += row + "\n";
         });
