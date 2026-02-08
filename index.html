@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Finance Master V6</title>
+    <title>Finance Master V7</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#4f46e5">
@@ -22,7 +22,7 @@
             --warning: #f59e0b;
             --transfer: #8b5cf6;
             --bg-grad: linear-gradient(135deg, #f0f2f5 0%, #e0e7ff 100%);
-            --card-bg: rgba(255, 255, 255, 0.9);
+            --card-bg: rgba(255, 255, 255, 0.95);
             --text-main: #111827;
             --text-sub: #6b7280;
             --radius: 20px;
@@ -98,16 +98,28 @@
         .page.active { display: block; animation: fadeIn 0.3s; }
         @keyframes fadeIn { from {opacity:0} to {opacity:1}}
         
-        .budget-input-row { display: flex; align-items: center; margin-bottom: 8px; }
         .input-label { font-size: 0.8rem; color: var(--text-sub); margin-bottom: 4px; display: block; }
         
         /* 搜尋統計區塊 */
         .search-summary {
             background: linear-gradient(to right, var(--primary), var(--primary-soft));
             color: white; padding: 15px; border-radius: 16px; margin-bottom: 15px;
-            display: none; /* 預設隱藏 */
-            animation: slideDown 0.3s ease;
+            display: none; animation: slideDown 0.3s ease;
         }
+
+        /* 月份導航列 (V7 新增) */
+        .month-nav {
+            display: flex; justify-content: space-between; align-items: center;
+            background: rgba(0,0,0,0.05); padding: 5px; border-radius: 12px; margin-bottom: 15px;
+        }
+        .month-btn {
+            background: none; border: none; padding: 8px 15px; font-size: 1.2rem; cursor: pointer; color: var(--text-main);
+        }
+        .month-display { font-weight: bold; font-size: 1.1rem; }
+        .diff-badge { font-size: 0.8rem; padding: 4px 8px; border-radius: 8px; margin-top: 5px; display: inline-block;}
+        .diff-up { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+        .diff-down { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+
         @keyframes slideDown { from{opacity:0; transform:translateY(-10px);} to{opacity:1; transform:translateY(0);}}
     </style>
 </head>
@@ -157,24 +169,31 @@
     </div>
 
     <div id="page-stats" class="page">
-        <div class="card">
-            <h2>📈 淨資產成長 (6個月)</h2>
-            <div style="height:150px"><canvas id="netWorthChart"></canvas></div>
+        <div class="month-nav">
+            <button class="month-btn" onclick="changeMonth(-1)">◀</button>
+            <span class="month-display" id="analysis-month-display">2026-02</span>
+            <button class="month-btn" onclick="changeMonth(1)">▶</button>
         </div>
 
         <div class="card">
             <div style="text-align:center; margin-bottom:20px;">
-                <div style="font-size:0.9rem; color:var(--text-sub)">本月總支出</div>
+                <div style="font-size:0.9rem; color:var(--text-sub)">該月總支出</div>
                 <div id="month-total-exp" style="font-size:2rem; font-weight:bold; color:var(--danger)">$0</div>
+                <div id="compare-badge" class="diff-badge" style="display:none">與上月持平</div>
             </div>
             
-            <h2>📊 支出分佈 (本月)</h2>
+            <h2>📊 支出分佈 (百分比)</h2>
             <div style="height:220px; margin-bottom:20px"><canvas id="pieChart"></canvas></div>
             <div id="category-list"></div>
         </div>
+
+        <div class="card">
+            <h2>📈 淨資產趨勢</h2>
+            <div style="height:150px"><canvas id="netWorthChart"></canvas></div>
+        </div>
         
         <div class="card">
-            <h2>💰 帳戶餘額</h2>
+            <h2>💰 帳戶餘額 (當前)</h2>
             <div id="acc-list"></div>
         </div>
     </div>
@@ -244,10 +263,13 @@
         },
         theme: 'light'
     };
-    // V6 資料讀取
-    let appData = JSON.parse(localStorage.getItem('finMasterV6')) || JSON.parse(localStorage.getItem('finMasterV5')) || defaultData;
+    // V7 資料讀取
+    let appData = JSON.parse(localStorage.getItem('finMasterV7')) || JSON.parse(localStorage.getItem('finMasterV6')) || defaultData;
     let currentType = 'expense';
     let charts = {};
+    
+    // V7 新增: 當前分析的月份 (預設為今天)
+    let analysisDate = new Date(); 
 
     function init() {
         document.getElementById('date-input').valueAsDate = new Date();
@@ -256,14 +278,17 @@
     }
 
     function saveData() {
-        localStorage.setItem('finMasterV6', JSON.stringify(appData));
+        localStorage.setItem('finMasterV7', JSON.stringify(appData));
         updateUI();
     }
 
     function updateUI() {
         renderDropdowns();
         renderRecent();
-        renderStats();
+        // 如果目前在分析頁面，需要根據 analysisDate 更新
+        if(document.getElementById('page-stats').classList.contains('active')) {
+            renderStats(); 
+        }
         renderSettings();
     }
 
@@ -316,15 +341,31 @@
         setTimeout(() => { btn.innerText = originalText; btn.style.background = ''; }, 1000);
     }
 
-    // --- 分析邏輯 (V6 更新：每月總支出 + 百分比) ---
+    // --- 分析邏輯 (V7 更新：月份切換 & 環比) ---
+    
+    // 切換月份按鈕功能
+    function changeMonth(offset) {
+        analysisDate.setMonth(analysisDate.getMonth() + offset);
+        renderStats();
+    }
+
     function renderStats() {
-        const now = new Date();
-        const curMonth = now.toISOString().slice(0,7); // YYYY-MM
+        // 1. 取得當前選擇的月份字串 (YYYY-MM)
+        const y = analysisDate.getFullYear();
+        const m = String(analysisDate.getMonth() + 1).padStart(2, '0');
+        const selectedMonth = `${y}-${m}`;
         
-        // 1. 計算餘額 & 淨資產
+        // 更新顯示
+        document.getElementById('analysis-month-display').innerText = selectedMonth;
+
+        // 2. 計算 上個月 的字串 (用於比較)
+        const prevDate = new Date(analysisDate);
+        prevDate.setMonth(prevDate.getMonth() - 1);
+        const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+
+        // 3. 計算 淨資產 (全時間累計)
         let bals = {}; appData.settings.accounts.forEach(a=>bals[a]=0);
         let netWorth = 0;
-        
         appData.txs.forEach(t => {
             if(t.type === 'income') bals[t.acc] += t.amt;
             else if(t.type === 'expense') bals[t.acc] -= t.amt;
@@ -335,24 +376,50 @@
         });
         Object.values(bals).forEach(v => netWorth += v);
         document.getElementById('header-net-worth').innerText = '$' + netWorth.toLocaleString();
-        
         document.getElementById('acc-list').innerHTML = Object.entries(bals).map(([k,v]) => `
             <div class="tx-item"><span>${k}</span><span style="font-weight:bold; color:${v>=0?'var(--success)':'var(--danger)'}">$${v.toLocaleString()}</span></div>
         `).join('');
 
-        // 2. 本月支出與分類佔比
+        // 4. 計算支出 (本月 vs 上月)
         let catExp = {};
         let totalMonthExp = 0;
+        let totalPrevExp = 0;
 
-        appData.txs.filter(t => t.date.startsWith(curMonth) && t.type === 'expense').forEach(t => {
-            catExp[t.cat] = (catExp[t.cat] || 0) + t.amt;
-            totalMonthExp += t.amt;
+        appData.txs.forEach(t => {
+            if(t.type === 'expense') {
+                if(t.date.startsWith(selectedMonth)) {
+                    catExp[t.cat] = (catExp[t.cat] || 0) + t.amt;
+                    totalMonthExp += t.amt;
+                } else if (t.date.startsWith(prevMonth)) {
+                    totalPrevExp += t.amt;
+                }
+            }
         });
 
         // 顯示本月總支出
         document.getElementById('month-total-exp').innerText = '$' + totalMonthExp.toLocaleString();
 
-        // 排序並計算百分比
+        // 顯示比較結果
+        const badge = document.getElementById('compare-badge');
+        const diff = totalMonthExp - totalPrevExp;
+        if(totalPrevExp === 0) {
+            badge.style.display = 'none'; // 上個月沒數據就不比了
+        } else {
+            badge.style.display = 'inline-block';
+            if(diff > 0) {
+                badge.className = 'diff-badge diff-up';
+                badge.innerText = `比上月多花 $${diff.toLocaleString()}`;
+            } else if (diff < 0) {
+                badge.className = 'diff-badge diff-down';
+                badge.innerText = `比上月節省 $${Math.abs(diff).toLocaleString()}`;
+            } else {
+                badge.className = 'diff-badge';
+                badge.style.background = '#eee'; badge.style.color='#666';
+                badge.innerText = '與上月持平';
+            }
+        }
+
+        // 5. 更新列表與圖表
         const sortedCats = Object.entries(catExp).sort((a,b)=>b[1]-a[1]);
         
         document.getElementById('category-list').innerHTML = sortedCats.map(([cat, val]) => {
@@ -368,13 +435,13 @@
                     <div style="font-size:0.75rem; color:var(--text-sub)">${pct}%</div>
                 </div>
             </div>`;
-        }).join('');
+        }).join('') || '<div style="text-align:center;color:#999;padding:20px">本月無支出</div>';
 
-        renderCharts(curMonth, sortedCats, netWorth);
+        renderCharts(sortedCats);
     }
 
-    function renderCharts(curMonth, sortedCats) {
-        // 圓餅圖
+    function renderCharts(sortedCats) {
+        // 圓餅圖 (隨月份變動)
         if(charts.pie) charts.pie.destroy();
         charts.pie = new Chart(document.getElementById('pieChart'), {
             type: 'doughnut',
@@ -389,9 +456,9 @@
             options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'right'}} }
         });
 
-        // 淨資產線圖
+        // 淨資產線圖 (長期趨勢，不隨月份切換而只顯示該月，顯示全域趨勢比較合理)
         let labels = [], data = [];
-        const now = new Date();
+        const now = new Date(); // 線圖固定顯示包含今天的最近6個月
         for(let i=5; i>=0; i--) {
             const d = new Date(now.getFullYear(), now.getMonth()-i+1, 0); 
             const limitDate = d.toISOString().slice(0,10);
@@ -417,7 +484,7 @@
         });
     }
 
-    // --- 列表與超級搜尋 (V6 更新) ---
+    // --- 列表與搜尋 ---
     function renderRecent() { document.getElementById('recent-list').innerHTML = appData.txs.slice(0,5).map(t => txHtml(t)).join(''); }
     
     function renderFullList() {
@@ -425,20 +492,13 @@
         const listDiv = document.getElementById('full-list');
         const statsDiv = document.getElementById('search-stats');
         
-        // 執行搜尋
         const res = appData.txs.filter(t => 
             t.cat.includes(k) || (t.desc&&t.desc.toLowerCase().includes(k)) || t.amt.toString().includes(k)
         );
 
-        // 顯示搜尋統計 (如果有輸入字)
         if (k.length > 0) {
             let totalSearchAmt = 0;
-            res.forEach(t => {
-                // 只有支出算入搜尋總和，或者你可以選擇全部加總，這裡預設加總「支出」比較合理，或者單純加總數值
-                if(t.type === 'expense') totalSearchAmt += t.amt;
-                // 如果你想看收入也加進去，可以拿掉這個 if
-            });
-            
+            res.forEach(t => { if(t.type === 'expense') totalSearchAmt += t.amt; });
             statsDiv.style.display = 'block';
             document.getElementById('search-total-amt').innerText = '$' + totalSearchAmt.toLocaleString();
             document.getElementById('search-count').innerText = `${res.length} 筆資料 (僅計算支出)`;
@@ -467,7 +527,7 @@
         </div>`;
     }
 
-    // --- 其他設定 ---
+    // --- 其他 ---
     function renderDropdowns() {
         const f = (id,l) => document.getElementById(id).innerHTML = l.map(i=>`<option value="${i}">${i}</option>`).join('');
         f('cat-select', appData.settings.categories); f('acc-select', appData.settings.accounts);
@@ -488,7 +548,7 @@
         if(p==='stats') renderStats();
     }
     function toggleTheme() { appData.theme = appData.theme==='light'?'dark':'light'; saveData(); document.documentElement.setAttribute('data-theme', appData.theme); }
-    function clearData() { if(confirm('確定清除?')) { localStorage.removeItem('finMasterV6'); localStorage.removeItem('finMasterV5'); location.reload(); }}
+    function clearData() { if(confirm('確定清除?')) { localStorage.removeItem('finMasterV7'); localStorage.removeItem('finMasterV6'); location.reload(); }}
     function exportJSON() {
         const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(appData)],{type:'application/json'}));
         a.download='backup.json'; a.click();
