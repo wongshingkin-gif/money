@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Simon的理財大師 V7.3 (Cloud)</title>
+    <title>Simon的理財大師 V7.3.1</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#4f46e5">
@@ -147,7 +147,7 @@
     <div id="page-settings" class="page">
         <div class="card">
             <h2 style="color:var(--success)">☁️ Google Sheet 同步</h2>
-            <div style="font-size:0.8rem; color:var(--text-sub); margin-bottom:10px">狀態：<span id="sync-status">已連接雲端</span></div>
+            <div style="font-size:0.8rem; color:var(--text-sub); margin-bottom:10px">狀態：<span id="sync-status">初始化中...</span></div>
             <button class="btn-main" onclick="forceSync()" style="margin-bottom:10px">🔄 手動立即同步</button>
             <div style="font-size:0.75rem; color:var(--text-sub)">資料會自動同步到你的 Google Sheet。如果更換設備，打開此網頁資料會自動載入。</div>
         </div>
@@ -178,8 +178,8 @@
 
 <script>
     // ==========================================
-    // 🔴 請將你的 Google Script URL 貼在下方引號內
-    const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzTX7hhvNq2BoSzgSuy0XlCA-UDyQooW6JvxNymW_Wf9ziLT8bPkmY6PvpqnipbXjY0/exec'; 
+    // 🔴 請將你的 Google Script URL 貼在下方引號內 (非常重要！)
+    const GOOGLE_SCRIPT_URL = '你的網址貼在這裡'; 
     // 例如: 'https://script.google.com/macros/s/AKfycbx.../exec'
     // ==========================================
 
@@ -196,65 +196,74 @@
     async function init() {
         document.getElementById('date-input').valueAsDate = new Date();
         
-        // 1. 先嘗試讀取本地緩存 (讓介面先顯示)
+        // 1. 先讀取本地，保證介面有東西顯示，不會卡白畫面
         const local = localStorage.getItem('finMasterV7_Cloud');
         if(local) {
-            appData = JSON.parse(local);
-            if(appData.theme) document.documentElement.setAttribute('data-theme', appData.theme);
-            updateUI();
+            try {
+                appData = JSON.parse(local);
+                if(appData.theme) document.documentElement.setAttribute('data-theme', appData.theme);
+            } catch(e) { console.error('Local data parse error'); }
         }
 
-        // 2. 如果有設定 URL，從雲端拉取最新資料
-        if(GOOGLE_SCRIPT_URL && GOOGLE_SCRIPT_URL.startsWith('http')) {
-            await loadFromCloud();
-        } else {
-            alert('⚠️ 請記得編輯 HTML 檔案，填入你的 Google Script URL');
+        // 2. 渲染介面 (這一步讓分類選項出現)
+        updateUI();
+
+        // 3. 檢查網址是否設定
+        if(!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes('https://script.google.com/macros/s/AKfycbwJAQYzpibfz3l8armfFIY2QJvSLLemPIhlpCsactXhIvwjcBK8maNtzFJoyCk6TTZl/exec')) {
+            alert('⚠️ 尚未設定 Google Script 網址！\n請到 index.html 修改 GOOGLE_SCRIPT_URL，否則無法雲端同步。');
+            document.getElementById('sync-status').innerText = '❌ 未設定網址';
+            return; // 網址沒設就不做同步，避免卡死
         }
+
+        // 4. 背景同步 (不卡住介面)
+        loadFromCloud();
     }
 
     // --- 雲端同步核心 ---
     async function loadFromCloud() {
-        showLoader(true, '下載雲端資料...');
+        if(!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes('你的網址')) return;
+        
+        document.getElementById('sync-status').innerText = '同步中...';
         try {
             const res = await fetch(GOOGLE_SCRIPT_URL);
             const cloudData = await res.json();
             
-            if(cloudData) {
+            if(cloudData && cloudData.txs) {
                 appData = cloudData;
                 saveLocal(); // 更新本地緩存
                 updateUI();
+                document.getElementById('sync-status').innerText = '✅ 已連接雲端';
                 console.log('雲端資料已同步');
             } else {
-                console.log('雲端無資料，使用預設值');
+                document.getElementById('sync-status').innerText = '⚠️ 雲端無資料(或格式錯誤)';
             }
         } catch (e) {
             console.error(e);
-            alert('⚠️ 無法連接 Google Sheet，請檢查網路或網址');
-        } finally {
-            showLoader(false);
+            document.getElementById('sync-status').innerText = '❌ 連線失敗 (請檢查網路/權限)';
         }
     }
 
     async function saveToCloud() {
         saveLocal(); // 先存本地，保證不丟失
-        showLoader(true, '上傳至 Google Sheet...');
+        
+        if(!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes('你的網址')) {
+            alert('無法上傳：未設定網址。資料已暫存於本機。');
+            return;
+        }
+
+        document.getElementById('sync-status').innerText = '上傳中...';
         
         try {
-            // 使用 fetch POST 發送資料
             await fetch(GOOGLE_SCRIPT_URL, {
                 method: 'POST',
-                mode: 'no-cors', // 重要：解決跨域問題 (Google Script 特性)
+                mode: 'no-cors', 
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(appData)
             });
-            
-            // 由於 no-cors 模式無法讀取回傳值，我們假設沒報錯就是成功
-            document.getElementById('sync-status').innerText = `上次同步: ${new Date().toLocaleTimeString()}`;
-            
+            document.getElementById('sync-status').innerText = `✅ 上次上傳: ${new Date().toLocaleTimeString()}`;
         } catch (e) {
-            alert('⚠️ 上傳失敗！資料已保存在手機，請稍後再試。');
-        } finally {
-            showLoader(false);
+            document.getElementById('sync-status').innerText = '❌ 上傳失敗';
+            alert('⚠️ 上傳失敗！請檢查網路。資料已保存在手機。');
         }
     }
 
@@ -263,7 +272,10 @@
     }
     
     function forceSync() {
-        saveToCloud();
+        // 手動同步時，先拉取，再上傳 (避免覆蓋)
+        loadFromCloud().then(() => {
+            saveToCloud();
+        });
     }
 
     function showLoader(show, text) {
@@ -276,7 +288,7 @@
         }
     }
 
-    // --- UI 與 邏輯 (大部分與舊版相同，只是存檔改為 saveToCloud) ---
+    // --- UI 與 邏輯 ---
     function updateUI() {
         renderDropdowns();
         renderRecent();
@@ -324,16 +336,16 @@
 
         appData.txs.unshift(newTx);
         
-        // 存檔流程：先清空輸入框 -> UI反應 -> 背景上傳
+        // UI 立即反應，不等待網路
         document.getElementById('amt-input').value = '';
         document.getElementById('desc-input').value = '';
         
-        saveToCloud(); // 觸發雲端同步
+        saveToCloud(); // 背景觸發雲端同步
         updateUI();
 
         const btn = document.querySelector('.btn-main');
-        const orgTxt = btn.innerText; btn.innerText = '✅ 已記錄 (同步中...)'; btn.style.background = '#10b981';
-        setTimeout(() => { btn.innerText = orgTxt; btn.style.background = ''; }, 2000);
+        const orgTxt = btn.innerText; btn.innerText = '✅ 已記錄'; btn.style.background = '#10b981';
+        setTimeout(() => { btn.innerText = orgTxt; btn.style.background = ''; }, 1500);
     }
 
     function renderStats() {
@@ -415,9 +427,20 @@
     }
 
     function renderDropdowns() {
-        const f = (id,l) => document.getElementById(id).innerHTML = l.map(i=>`<option value="${i}">${i}</option>`).join('');
-        f('cat-select', appData.settings.categories); f('acc-select', appData.settings.accounts);
-        f('from-acc-select', appData.settings.accounts); f('to-acc-select', appData.settings.accounts);
+        const catSelect = document.getElementById('cat-select');
+        const accSelect = document.getElementById('acc-select');
+        const fromSelect = document.getElementById('from-acc-select');
+        const toSelect = document.getElementById('to-acc-select');
+
+        if(appData.settings.categories.length > 0) {
+            catSelect.innerHTML = appData.settings.categories.map(i=>`<option value="${i}">${i}</option>`).join('');
+        }
+        if(appData.settings.accounts.length > 0) {
+            const accOptions = appData.settings.accounts.map(i=>`<option value="${i}">${i}</option>`).join('');
+            accSelect.innerHTML = accOptions;
+            fromSelect.innerHTML = accOptions;
+            toSelect.innerHTML = accOptions;
+        }
     }
     function renderSettings() {
         const tag = (k,id) => document.getElementById(id).innerHTML = appData.settings[k].map(i=>`<span style="padding:6px 12px;background:#eee;border-radius:8px;font-size:0.85rem;cursor:pointer" onclick="if(confirm('刪除?')){appData.settings['${k}']=appData.settings['${k}'].filter(x=>x!=='${i}'); saveToCloud(); renderSettings();}">${i} ×</span>`).join('');
