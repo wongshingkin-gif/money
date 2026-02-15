@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Simon的理財大師 V7.3.1</title>
+    <title>Simon的理財大師 V8.0 (雲端版)</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#4f46e5">
@@ -14,6 +14,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <style>
+        /* 樣式保持 V7.2 風格 */
         :root {
             --primary: #4f46e5; --primary-soft: #818cf8; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --transfer: #8b5cf6;
             --bg-grad: linear-gradient(135deg, #f0f2f5 0%, #e0e7ff 100%);
@@ -42,7 +43,7 @@
         .amount.in { color: var(--success); } .amount.out { color: var(--danger); } .amount.tr { color: var(--transfer); }
         
         /* 載入動畫 */
-        #loader { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; display:flex; justify-content:center; align-items:center; backdrop-filter:blur(5px); display:none; flex-direction: column; color:white; }
+        #loader { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999; display:flex; justify-content:center; align-items:center; backdrop-filter:blur(5px); flex-direction: column; color:white; transition: opacity 0.3s; }
         .spinner { width: 40px; height: 40px; border: 4px solid #fff; border-top: 4px solid transparent; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 10px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
@@ -67,12 +68,12 @@
 
 <div id="loader">
     <div class="spinner"></div>
-    <div id="loader-text">同步中...</div>
+    <div id="loader-text">正在從雲端下載資料...</div>
 </div>
 
 <div class="container">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-        <h1 style="font-size:1.5rem; background: linear-gradient(to right, var(--primary), #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Simon的理財大師</h1>
+        <h1 style="font-size:1.5rem; background: linear-gradient(to right, var(--primary), #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Simon的理財大師 V8.0</h1>
         <div onclick="toggleTheme()" style="font-size:1.5rem; cursor:pointer; background:rgba(0,0,0,0.05); width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center;">🌗</div>
     </div>
 
@@ -93,15 +94,15 @@
                 <input type="number" id="amt-input" placeholder="金額" inputmode="decimal" style="flex:1; font-weight:bold;">
             </div>
             <div id="normal-inputs" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                <div><span class="input-label">分類</span><select id="cat-select"></select></div>
-                <div><span class="input-label">帳戶</span><select id="acc-select"></select></div>
+                <div><span class="input-label">分類</span><select id="cat-select"><option>載入中...</option></select></div>
+                <div><span class="input-label">帳戶</span><select id="acc-select"><option>載入中...</option></select></div>
             </div>
             <div id="transfer-inputs" style="display:none; grid-template-columns:1fr 1fr; gap:10px;">
                 <div><span class="input-label">從 (轉出)</span><select id="from-acc-select"></select></div>
                 <div><span class="input-label">到 (轉入)</span><select id="to-acc-select"></select></div>
             </div>
             <input type="text" id="desc-input" placeholder="備註" style="margin-top:10px">
-            <button class="btn-main" onclick="addTx()">記帳</button>
+            <button class="btn-main" onclick="addTx()">記帳 (存入 Google Sheet)</button>
         </div>
         <div class="card">
             <h2>最近交易 <span style="font-size:0.8rem; color:var(--primary)" onclick="switchPage('list')">全部 ></span></h2>
@@ -146,10 +147,9 @@
 
     <div id="page-settings" class="page">
         <div class="card">
-            <h2 style="color:var(--success)">☁️ Google Sheet 同步</h2>
-            <div style="font-size:0.8rem; color:var(--text-sub); margin-bottom:10px">狀態：<span id="sync-status">初始化中...</span></div>
-            <button class="btn-main" onclick="forceSync()" style="margin-bottom:10px">🔄 手動立即同步</button>
-            <div style="font-size:0.75rem; color:var(--text-sub)">資料會自動同步到你的 Google Sheet。如果更換設備，打開此網頁資料會自動載入。</div>
+            <h2 style="color:var(--success)">☁️ 雲端連線狀態</h2>
+            <div style="font-size:0.8rem; color:var(--text-sub); margin-bottom:10px">資料儲存於 Google Sheet (db 分頁)</div>
+            <button class="btn-main" onclick="loadFromCloud()" style="margin-bottom:10px">🔄 重新整理資料</button>
         </div>
         <div class="card">
             <h2>⚙️ 分類與帳戶</h2>
@@ -160,11 +160,6 @@
             <div style="font-weight:bold; margin-bottom:5px">帳戶</div>
             <div style="display:flex; gap:5px; margin-bottom:15px"><input id="new-acc" placeholder="新帳戶"><button onclick="addItem('accounts','new-acc')" style="width:40px; background:var(--primary); color:white; border:none; border-radius:10px">+</button></div>
             <div id="manage-accs" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
-        </div>
-        <div class="card">
-            <h2>💾 本地備份</h2>
-            <button class="btn-main" style="background:#6b7280; margin-bottom:10px" onclick="exportJSON()">下載 JSON 備份</button>
-            <button class="btn-main" style="background:var(--danger)" onclick="clearData()">⚠️ 清空本地暫存</button>
         </div>
     </div>
 </div>
@@ -178,80 +173,57 @@
 
 <script>
     // ==========================================
-    // 🔴 請將你的 Google Script URL 貼在下方引號內 (非常重要！)
-    const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzm1PglW4Xa_W96s88wGDT3IbFoMlLq-61MOaeRg-DzkUoxhP_VVOLQurasV-I68EL5/exec'; 
-    // 例如: 'https://script.google.com/macros/s/AKfycbx.../exec'
+    // 🔴 請填入你的 Google Apps Script 網址
+    const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby03-0vA-rysqQXHBYnFRu_0VJeouM-RIrKd5l804e9HloUE003d_bYaSVPbXHGaUY10w/exec'; 
     // ==========================================
 
-    let appData = {
-        txs: [],
-        settings: { categories: ['餐飲','交通','購物','娛樂','居住','薪水','投資'], accounts: ['現金','銀行','信用卡','八達通'] },
-        theme: 'light'
-    };
+    let appData = { txs: [], settings: { categories: [], accounts: [] }, theme: 'light' };
     let currentType = 'expense';
     let charts = {};
     let analysisDate = new Date();
 
-    // 啟動
+    // 啟動程式
     async function init() {
         document.getElementById('date-input').valueAsDate = new Date();
         
-        // 1. 先讀取本地，保證介面有東西顯示，不會卡白畫面
-        const local = localStorage.getItem('finMasterV7_Cloud');
-        if(local) {
-            try {
-                appData = JSON.parse(local);
-                if(appData.theme) document.documentElement.setAttribute('data-theme', appData.theme);
-            } catch(e) { console.error('Local data parse error'); }
+        if(!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes('你的網址')) {
+            hideLoader();
+            alert('⚠️ 請先在代碼中填入 Google Script URL');
+            return;
         }
 
-        // 2. 渲染介面 (這一步讓分類選項出現)
-        updateUI();
-
-        // 3. 檢查網址是否設定
-        if(!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes('https://script.google.com/macros/s/AKfycbwJAQYzpibfz3l8armfFIY2QJvSLLemPIhlpCsactXhIvwjcBK8maNtzFJoyCk6TTZl/exec')) {
-            alert('⚠️ 尚未設定 Google Script 網址！\n請到 index.html 修改 GOOGLE_SCRIPT_URL，否則無法雲端同步。');
-            document.getElementById('sync-status').innerText = '❌ 未設定網址';
-            return; // 網址沒設就不做同步，避免卡死
-        }
-
-        // 4. 背景同步 (不卡住介面)
-        loadFromCloud();
+        // 強制從雲端下載資料
+        await loadFromCloud();
     }
 
-    // --- 雲端同步核心 ---
+    // --- 雲端核心 (Direct to Sheet) ---
     async function loadFromCloud() {
-        if(!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes('你的網址')) return;
-        
-        document.getElementById('sync-status').innerText = '同步中...';
+        showLoader(true, '正在從 Google Sheet 下載...');
         try {
             const res = await fetch(GOOGLE_SCRIPT_URL);
-            const cloudData = await res.json();
+            const data = await res.json();
             
-            if(cloudData && cloudData.txs) {
-                appData = cloudData;
-                saveLocal(); // 更新本地緩存
+            if(data) {
+                appData = data;
+                if(!appData.txs) appData.txs = [];
+                if(!appData.settings) appData.settings = { categories: [], accounts: [] };
+                
+                if(appData.theme) document.documentElement.setAttribute('data-theme', appData.theme);
                 updateUI();
-                document.getElementById('sync-status').innerText = '✅ 已連接雲端';
-                console.log('雲端資料已同步');
-            } else {
-                document.getElementById('sync-status').innerText = '⚠️ 雲端無資料(或格式錯誤)';
+                console.log('雲端資料已載入');
             }
         } catch (e) {
+            alert('❌ 無法連線到 Google Sheet，請檢查網路。');
             console.error(e);
-            document.getElementById('sync-status').innerText = '❌ 連線失敗 (請檢查網路/權限)';
+        } finally {
+            hideLoader();
         }
     }
 
     async function saveToCloud() {
-        saveLocal(); // 先存本地，保證不丟失
-        
-        if(!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes('你的網址')) {
-            alert('無法上傳：未設定網址。資料已暫存於本機。');
-            return;
-        }
-
-        document.getElementById('sync-status').innerText = '上傳中...';
+        // 為了使用者體驗，先不顯示 loading，背景上傳
+        // 但如果想確保資料安全，可以打開 loader
+        showLoader(true, '正在儲存到 Google Sheet...');
         
         try {
             await fetch(GOOGLE_SCRIPT_URL, {
@@ -260,35 +232,29 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(appData)
             });
-            document.getElementById('sync-status').innerText = `✅ 上次上傳: ${new Date().toLocaleTimeString()}`;
+            console.log('上傳成功');
         } catch (e) {
-            document.getElementById('sync-status').innerText = '❌ 上傳失敗';
-            alert('⚠️ 上傳失敗！請檢查網路。資料已保存在手機。');
+            alert('❌ 儲存失敗！請檢查網路。');
+            console.error(e);
+        } finally {
+            hideLoader();
         }
-    }
-
-    function saveLocal() {
-        localStorage.setItem('finMasterV7_Cloud', JSON.stringify(appData));
-    }
-    
-    function forceSync() {
-        // 手動同步時，先拉取，再上傳 (避免覆蓋)
-        loadFromCloud().then(() => {
-            saveToCloud();
-        });
     }
 
     function showLoader(show, text) {
         const l = document.getElementById('loader');
         if(show) {
-            document.getElementById('loader-text').innerText = text || '載入中...';
+            document.getElementById('loader-text').innerText = text;
             l.style.display = 'flex';
+            l.style.opacity = '1';
         } else {
-            l.style.display = 'none';
+            l.style.opacity = '0';
+            setTimeout(()=> l.style.display='none', 300);
         }
     }
+    function hideLoader() { showLoader(false); }
 
-    // --- UI 與 邏輯 ---
+    // --- UI 邏輯 ---
     function updateUI() {
         renderDropdowns();
         renderRecent();
@@ -297,26 +263,14 @@
         renderSettings();
     }
 
-    function calcHomeStats() {
-        const now = new Date();
-        const prefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-        let total = 0;
-        appData.txs.forEach(t => { if (t.type === 'expense' && t.date.startsWith(prefix)) total += t.amt; });
-        document.getElementById('home-month-total').innerText = '$' + total.toLocaleString();
-    }
-
-    function setType(t) {
-        currentType = t;
-        document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
-        document.querySelector(`.toggle-btn.${t}`).classList.add('active');
-        document.getElementById('normal-inputs').style.display = t==='transfer'?'none':'grid';
-        document.getElementById('transfer-inputs').style.display = t==='transfer'?'grid':'none';
-    }
-
     function addTx() {
         const amt = parseFloat(document.getElementById('amt-input').value);
         if(!amt) return alert('請輸入金額');
         
+        const cat = document.getElementById('cat-select').value;
+        const acc = document.getElementById('acc-select').value;
+        if(currentType !== 'transfer' && (!cat || !acc)) return alert('請先到「設定」新增分類與帳戶');
+
         const dateInput = document.getElementById('date-input').value;
         const now = new Date();
         const finalDate = `${dateInput} ${now.toTimeString().split(' ')[0]}`;
@@ -330,65 +284,113 @@
             newTx.cat = '轉帳'; newTx.acc = f; newTx.to_acc = t;
             if (!newTx.desc) newTx.desc = `${f} -> ${t}`;
         } else {
-            newTx.cat = document.getElementById('cat-select').value;
-            newTx.acc = document.getElementById('acc-select').value;
+            newTx.cat = cat;
+            newTx.acc = acc;
         }
 
         appData.txs.unshift(newTx);
         
-        // UI 立即反應，不等待網路
+        // UI Reset
         document.getElementById('amt-input').value = '';
         document.getElementById('desc-input').value = '';
         
-        saveToCloud(); // 背景觸發雲端同步
         updateUI();
-
-        const btn = document.querySelector('.btn-main');
-        const orgTxt = btn.innerText; btn.innerText = '✅ 已記錄'; btn.style.background = '#10b981';
-        setTimeout(() => { btn.innerText = orgTxt; btn.style.background = ''; }, 1500);
+        saveToCloud(); // 觸發雲端儲存
     }
 
+    // 新增分類/帳戶
+    function addItem(key, inputId) {
+        const val = document.getElementById(inputId).value.trim();
+        if(!val) return;
+        if(!appData.settings[key]) appData.settings[key] = [];
+        if(appData.settings[key].includes(val)) return alert('已存在');
+        
+        appData.settings[key].push(val);
+        document.getElementById(inputId).value = '';
+        updateUI();
+        saveToCloud();
+    }
+
+    // 刪除分類/帳戶
+    function deleteItem(key, val) {
+        if(confirm(`刪除 ${val}?`)) {
+            appData.settings[key] = appData.settings[key].filter(x => x !== val);
+            updateUI();
+            saveToCloud();
+        }
+    }
+    
+    // 刪除交易
+    function deleteTx(id) {
+        if(confirm('確定刪除這筆紀錄?')) {
+            appData.txs = appData.txs.filter(x => x.id !== id);
+            updateUI();
+            saveToCloud();
+        }
+    }
+
+    function renderDropdowns() {
+        const cats = appData.settings.categories || [];
+        const accs = appData.settings.accounts || [];
+        const catOpts = cats.length ? cats.map(i=>`<option value="${i}">${i}</option>`).join('') : '<option value="">(無分類)</option>';
+        const accOpts = accs.length ? accs.map(i=>`<option value="${i}">${i}</option>`).join('') : '<option value="">(無帳戶)</option>';
+
+        document.getElementById('cat-select').innerHTML = catOpts;
+        document.getElementById('acc-select').innerHTML = accOpts;
+        document.getElementById('from-acc-select').innerHTML = accOpts;
+        document.getElementById('to-acc-select').innerHTML = accOpts;
+    }
+
+    function renderRecent() { document.getElementById('recent-list').innerHTML = appData.txs.slice(0,5).map(t=>txHtml(t)).join(''); }
+
+    function txHtml(t) {
+        let icon = t.cat ? t.cat[0] : '⇄';
+        let sub = t.type==='transfer' ? `${t.acc} → ${t.to_acc}` : `${t.date.slice(0,16)} · ${t.acc}`;
+        let col = t.type==='income'?'in':(t.type==='transfer'?'tr':'out');
+        let s = t.type==='income'?'+':(t.type==='transfer'?'':'-');
+        return `<div class="tx-item" onclick="deleteTx(${t.id})">
+            <div style="display:flex;align-items:center"><div class="tx-icon">${icon}</div><div><div style="font-weight:600">${t.cat} <small style="opacity:0.6">${t.desc||''}</small></div><div style="font-size:0.8rem;opacity:0.5">${sub}</div></div></div>
+            <div class="amount ${col}">${s}$${t.amt.toLocaleString()}</div></div>`;
+    }
+
+    // 其他功能保持不變
+    function calcHomeStats() {
+        const now = new Date();
+        const prefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        let total = 0;
+        appData.txs.forEach(t => { if (t.type === 'expense' && t.date.startsWith(prefix)) total += t.amt; });
+        document.getElementById('home-month-total').innerText = '$' + total.toLocaleString();
+    }
+    function setType(t) {
+        currentType = t;
+        document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+        document.querySelector(`.toggle-btn.${t}`).classList.add('active');
+        document.getElementById('normal-inputs').style.display = t==='transfer'?'none':'grid';
+        document.getElementById('transfer-inputs').style.display = t==='transfer'?'grid':'none';
+    }
     function renderStats() {
         const y = analysisDate.getFullYear();
         const m = String(analysisDate.getMonth() + 1).padStart(2, '0');
         const selectedMonth = `${y}-${m}`;
         document.getElementById('analysis-month-display').innerText = selectedMonth;
 
-        const prevDate = new Date(analysisDate); prevDate.setMonth(prevDate.getMonth()-1);
-        const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth()+1).padStart(2,'0')}`;
-
-        let bals = {}; appData.settings.accounts.forEach(a=>bals[a]=0);
+        let bals = {}; (appData.settings.accounts||[]).forEach(a=>bals[a]=0);
         let netWorth = 0;
         appData.txs.forEach(t => {
-            if(t.type==='income') bals[t.acc]+=t.amt;
-            else if(t.type==='expense') bals[t.acc]-=t.amt;
+            if(t.type==='income') bals[t.acc]=(bals[t.acc]||0)+t.amt;
+            else if(t.type==='expense') bals[t.acc]=(bals[t.acc]||0)-t.amt;
             else if(t.type==='transfer'){ if(bals[t.acc]!==undefined) bals[t.acc]-=t.amt; if(bals[t.to_acc]!==undefined) bals[t.to_acc]+=t.amt; }
         });
         Object.values(bals).forEach(v=>netWorth+=v);
         document.getElementById('stats-total-worth').innerText = '$' + netWorth.toLocaleString();
         document.getElementById('acc-list').innerHTML = Object.entries(bals).map(([k,v])=>`<div class="tx-item"><span>${k}</span><span style="color:${v>=0?'var(--success)':'var(--danger)'}">$${v.toLocaleString()}</span></div>`).join('');
 
-        let catExp = {}; let totalMonth=0; let totalPrev=0;
-        appData.txs.forEach(t=>{
-            if(t.type==='expense'){
-                if(t.date.startsWith(selectedMonth)){ catExp[t.cat]=(catExp[t.cat]||0)+t.amt; totalMonth+=t.amt; }
-                else if(t.date.startsWith(prevMonth)) totalPrev+=t.amt;
-            }
-        });
+        let catExp = {}; let totalMonth=0;
+        appData.txs.forEach(t=>{ if(t.type==='expense' && t.date.startsWith(selectedMonth)){ catExp[t.cat]=(catExp[t.cat]||0)+t.amt; totalMonth+=t.amt; } });
         document.getElementById('month-total-exp').innerText = '$'+totalMonth.toLocaleString();
-        const badge = document.getElementById('compare-badge');
-        const diff = totalMonth-totalPrev;
-        if(totalPrev===0) badge.style.display='none';
-        else {
-            badge.style.display='inline-block';
-            badge.className = diff>0 ? 'diff-badge diff-up' : (diff<0 ? 'diff-badge diff-down' : 'diff-badge');
-            badge.innerText = diff>0 ? `比上月多花 $${diff.toLocaleString()}` : (diff<0 ? `比上月節省 $${Math.abs(diff).toLocaleString()}` : '持平');
-        }
-
+        
         const sorted = Object.entries(catExp).sort((a,b)=>b[1]-a[1]);
-        document.getElementById('category-list').innerHTML = sorted.map(([k,v])=>`
-            <div class="tx-item"><div><div style="width:10px;height:10px;background:var(--primary);border-radius:50%;display:inline-block;margin-right:5px"></div>${k}</div>
-            <div style="text-align:right"><div style="font-weight:bold">$${v.toLocaleString()}</div><div style="font-size:0.7rem;color:#888">${((v/totalMonth)*100).toFixed(1)}%</div></div></div>`).join('');
+        document.getElementById('category-list').innerHTML = sorted.map(([k,v])=>`<div class="tx-item"><div><div style="width:10px;height:10px;background:var(--primary);border-radius:50%;display:inline-block;margin-right:5px"></div>${k}</div><div style="text-align:right"><div style="font-weight:bold">$${v.toLocaleString()}</div><div style="font-size:0.7rem;color:#888">${((v/totalMonth)*100).toFixed(1)}%</div></div></div>`).join('');
         
         if(charts.pie) charts.pie.destroy();
         charts.pie = new Chart(document.getElementById('pieChart'), { type:'doughnut', data:{labels:sorted.map(x=>x[0]), datasets:[{data:sorted.map(x=>x[1]), backgroundColor:['#4f46e5','#ef4444','#f59e0b','#10b981','#ec4899'], borderWidth:0}]}, options:{maintainAspectRatio:false, plugins:{legend:{position:'right'}}}});
@@ -398,8 +400,7 @@
             const d=new Date(now.getFullYear(),now.getMonth()-i+1,0);
             const ld=d.toISOString().slice(0,10);
             labs.push(d.toISOString().slice(5,7)+'月');
-            let nw=0;
-            appData.txs.forEach(t=>{ if(t.date.slice(0,10)<=ld){ if(t.type==='income') nw+=t.amt; if(t.type==='expense') nw-=t.amt; }});
+            let nw=0; appData.txs.forEach(t=>{ if(t.date.slice(0,10)<=ld){ if(t.type==='income') nw+=t.amt; if(t.type==='expense') nw-=t.amt; }});
             dats.push(nw);
         }
         if(charts.line) charts.line.destroy();
@@ -407,53 +408,19 @@
     }
 
     function changeMonth(o) { analysisDate.setMonth(analysisDate.getMonth()+o); renderStats(); }
-    
     function renderFullList() {
         const k = document.getElementById('search').value.toLowerCase();
         const list = appData.txs.filter(t=> t.cat.includes(k) || (t.desc && t.desc.toLowerCase().includes(k)) || t.amt.toString().includes(k));
         document.getElementById('full-list').innerHTML = list.slice(0,50).map(t=>txHtml(t)).join('');
     }
-    
-    function renderRecent() { document.getElementById('recent-list').innerHTML = appData.txs.slice(0,5).map(t=>txHtml(t)).join(''); }
-
-    function txHtml(t) {
-        let icon = t.cat ? t.cat[0] : '⇄';
-        let sub = t.type==='transfer' ? `${t.acc} → ${t.to_acc}` : `${t.date.slice(0,16)} · ${t.acc}`;
-        let col = t.type==='income'?'in':(t.type==='transfer'?'tr':'out');
-        let s = t.type==='income'?'+':(t.type==='transfer'?'':'-');
-        return `<div class="tx-item" onclick="if(confirm('刪除?')){ appData.txs=appData.txs.filter(x=>x.id!==${t.id}); saveToCloud(); updateUI(); }">
-            <div style="display:flex;align-items:center"><div class="tx-icon">${icon}</div><div><div style="font-weight:600">${t.cat} <small style="opacity:0.6">${t.desc||''}</small></div><div style="font-size:0.8rem;opacity:0.5">${sub}</div></div></div>
-            <div class="amount ${col}">${s}$${t.amt.toLocaleString()}</div></div>`;
-    }
-
-    function renderDropdowns() {
-        const catSelect = document.getElementById('cat-select');
-        const accSelect = document.getElementById('acc-select');
-        const fromSelect = document.getElementById('from-acc-select');
-        const toSelect = document.getElementById('to-acc-select');
-
-        if(appData.settings.categories.length > 0) {
-            catSelect.innerHTML = appData.settings.categories.map(i=>`<option value="${i}">${i}</option>`).join('');
-        }
-        if(appData.settings.accounts.length > 0) {
-            const accOptions = appData.settings.accounts.map(i=>`<option value="${i}">${i}</option>`).join('');
-            accSelect.innerHTML = accOptions;
-            fromSelect.innerHTML = accOptions;
-            toSelect.innerHTML = accOptions;
-        }
-    }
     function renderSettings() {
-        const tag = (k,id) => document.getElementById(id).innerHTML = appData.settings[k].map(i=>`<span style="padding:6px 12px;background:#eee;border-radius:8px;font-size:0.85rem;cursor:pointer" onclick="if(confirm('刪除?')){appData.settings['${k}']=appData.settings['${k}'].filter(x=>x!=='${i}'); saveToCloud(); renderSettings();}">${i} ×</span>`).join('');
+        const tag = (k,id) => document.getElementById(id).innerHTML = (appData.settings[k]||[]).map(i=>`<span style="padding:6px 12px;background:#eee;border-radius:8px;font-size:0.85rem;cursor:pointer" onclick="deleteItem('${k}','${i}')">${i} ×</span>`).join('');
         tag('categories','manage-cats'); tag('accounts','manage-accs');
     }
-    function addItem(k,id) { const v=document.getElementById(id).value; if(v){ appData.settings[k].push(v); saveToCloud(); document.getElementById(id).value=''; updateUI(); }}
     function switchPage(p,btn) { document.querySelectorAll('.page').forEach(x=>x.classList.remove('active')); document.getElementById('page-'+p).classList.add('active'); if(btn){document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active')); btn.classList.add('active');} if(p==='stats') renderStats(); }
     function toggleTheme() { appData.theme = appData.theme==='light'?'dark':'light'; document.documentElement.setAttribute('data-theme', appData.theme); saveToCloud(); }
-    function exportJSON() { const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(appData)],{type:'application/json'})); a.download='backup.json'; a.click(); }
-    function clearData() { if(confirm('清除本地緩存? (雲端資料不會消失)')) { localStorage.removeItem('finMasterV7_Cloud'); location.reload(); }}
 
     init();
 </script>
 </body>
 </html>
-
