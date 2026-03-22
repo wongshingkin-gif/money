@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Simon的理財大師 V8.0 (雲端版)</title>
+    <title>Simon的理財大師 V8</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#4f46e5">
@@ -14,7 +14,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <style>
-        /* 樣式保持 V7.2 風格 */
         :root {
             --primary: #4f46e5; --primary-soft: #818cf8; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --transfer: #8b5cf6;
             --bg-grad: linear-gradient(135deg, #f0f2f5 0%, #e0e7ff 100%);
@@ -42,12 +41,15 @@
         .tx-icon { width: 40px; height: 40px; border-radius: 12px; background: rgba(79, 70, 229, 0.1); color: var(--primary); display: flex; align-items: center; justify-content: center; margin-right: 12px; font-weight: bold; }
         .amount.in { color: var(--success); } .amount.out { color: var(--danger); } .amount.tr { color: var(--transfer); }
         
-        /* 載入動畫 */
         #loader { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999; display:flex; justify-content:center; align-items:center; backdrop-filter:blur(5px); flex-direction: column; color:white; transition: opacity 0.3s; }
         .spinner { width: 40px; height: 40px; border: 4px solid #fff; border-top: 4px solid transparent; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 10px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        /* 導航 */
+        /* V8.2 新增：解鎖畫面 CSS */
+        #lock-screen { position: fixed; top:0; left:0; width:100%; height:100%; background: var(--bg-grad); z-index: 10000; display: none; justify-content: center; align-items: center; flex-direction: column; }
+        .lock-card { background: var(--card-bg); padding: 40px 30px; border-radius: var(--radius); box-shadow: var(--shadow); text-align: center; width: 85%; max-width: 350px; border: 1px solid rgba(255,255,255,0.2); }
+        .lock-card input { text-align: center; letter-spacing: 5px; font-size: 1.2rem; margin-top: 20px; margin-bottom: 20px; }
+
         .nav { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 500px; background: rgba(255,255,255,0.9); backdrop-filter: blur(20px); border-radius: 30px; display: flex; justify-content: space-around; padding: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.15); z-index: 100; border: 1px solid rgba(255,255,255,0.2); padding-bottom: max(12px, env(safe-area-inset-bottom)); }
         [data-theme="dark"] .nav { background: rgba(30, 41, 59, 0.9); border-color: rgba(255,255,255,0.1); }
         .nav-item { text-align: center; color: var(--text-sub); font-size: 0.7rem; cursor: pointer; opacity: 0.7; }
@@ -59,6 +61,10 @@
         
         .month-nav { display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.05); padding: 5px; border-radius: 12px; margin-bottom: 15px; }
         .month-btn { background: none; border: none; padding: 8px 15px; font-size: 1.2rem; cursor: pointer; color: var(--text-main); }
+        
+        #month-picker { background: transparent; border: none; font-size: 1.1rem; font-weight: bold; text-align: center; color: var(--text-main); outline: none; padding: 0; cursor: pointer; width: 130px; }
+        [data-theme="dark"] #month-picker::-webkit-calendar-picker-indicator { filter: invert(1); }
+
         .diff-badge { font-size: 0.8rem; padding: 4px 8px; border-radius: 8px; margin-top: 5px; display: inline-block;}
         .diff-up { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
         .diff-down { background: rgba(16, 185, 129, 0.1); color: var(--success); }
@@ -66,21 +72,50 @@
 </head>
 <body>
 
+<div id="lock-screen">
+    <div class="lock-card">
+        <div style="font-size: 3rem; margin-bottom: 10px;">🔒</div>
+        <h2 style="justify-content: center; margin-bottom: 5px;">隱私解鎖</h2>
+        <div style="font-size: 0.85rem; color: var(--text-sub);">請輸入密碼以進入你的理財大師</div>
+        <input type="password" id="unlock-pwd" placeholder="••••" onkeypress="if(event.key==='Enter') unlockApp()">
+        <button class="btn-main" onclick="unlockApp()">解鎖 App</button>
+    </div>
+</div>
+
 <div id="loader">
     <div class="spinner"></div>
-    <div id="loader-text">正在從雲端下載資料...</div>
+    <div id="loader-text">載入中...</div>
 </div>
 
 <div class="container">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-        <h1 style="font-size:1.5rem; background: linear-gradient(to right, var(--primary), #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Simon的理財大師 V8.0</h1>
+        <h1 style="font-size:1.5rem; background: linear-gradient(to right, var(--primary), #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Simon的理財大師</h1>
         <div onclick="toggleTheme()" style="font-size:1.5rem; cursor:pointer; background:rgba(0,0,0,0.05); width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center;">🌗</div>
     </div>
 
     <div id="page-home" class="page active">
-        <div class="card" style="background: linear-gradient(to right, #4f46e5, #818cf8); color: white;">
-            <div style="font-size:0.9rem; opacity:0.9">本月暫時總開支</div>
-            <div id="home-month-total" style="font-size:2rem; font-weight:bold">$0</div>
+        <div class="card" style="background: linear-gradient(to right, #4f46e5, #818cf8); color: white; padding: 25px 20px;">
+            <div style="display:flex; justify-content:space-between; margin-bottom: 15px;">
+                <div>
+                    <div style="font-size:0.8rem; opacity:0.8">本月收入</div>
+                    <div id="home-month-inc" style="font-size:1.2rem; font-weight:bold">$0</div>
+                </div>
+                <div style="text-align:right">
+                    <div style="font-size:0.8rem; opacity:0.8">本月支出</div>
+                    <div id="home-month-exp" style="font-size:1.2rem; font-weight:bold">$0</div>
+                </div>
+            </div>
+            <div style="border-top: 1px solid rgba(255,255,255,0.2); margin: 15px 0;"></div>
+            <div style="display:flex; justify-content:space-between; align-items:flex-end;">
+                <div>
+                    <div style="font-size:0.85rem; opacity:0.9">總資產淨值 (Net Worth)</div>
+                    <div id="home-net-worth" style="font-size:2rem; font-weight:bold">$0</div>
+                </div>
+                <div style="text-align:right">
+                    <div style="font-size:0.8rem; opacity:0.8">本月結餘</div>
+                    <div id="home-month-bal" style="font-size:1.1rem; font-weight:bold">$0</div>
+                </div>
+            </div>
         </div>
 
         <div class="card">
@@ -95,14 +130,14 @@
             </div>
             <div id="normal-inputs" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                 <div><span class="input-label">分類</span><select id="cat-select"><option>載入中...</option></select></div>
-                <div><span class="input-label">帳戶</span><select id="acc-select"><option>載入中...</option></select></div>
+                <div><span class="input-label">帳戶 (含負債)</span><select id="acc-select"><option>載入中...</option></select></div>
             </div>
             <div id="transfer-inputs" style="display:none; grid-template-columns:1fr 1fr; gap:10px;">
                 <div><span class="input-label">從 (轉出)</span><select id="from-acc-select"></select></div>
-                <div><span class="input-label">到 (轉入)</span><select id="to-acc-select"></select></div>
+                <div><span class="input-label">到 (轉入/還款)</span><select id="to-acc-select"></select></div>
             </div>
             <input type="text" id="desc-input" placeholder="備註" style="margin-top:10px">
-            <button class="btn-main" onclick="addTx()">記帳 (存入 Google Sheet)</button>
+            <button class="btn-main" onclick="addTx()">記帳 (存入雲端)</button>
         </div>
         <div class="card">
             <h2>最近交易 <span style="font-size:0.8rem; color:var(--primary)" onclick="switchPage('list')">全部 ></span></h2>
@@ -113,9 +148,10 @@
     <div id="page-stats" class="page">
         <div class="month-nav">
             <button class="month-btn" onclick="changeMonth(-1)">◀</button>
-            <span class="month-display" id="analysis-month-display"></span>
+            <input type="month" id="month-picker" onchange="jumpToMonth(this.value)">
             <button class="month-btn" onclick="changeMonth(1)">▶</button>
         </div>
+        
         <div class="card">
             <div style="text-align:center; margin-bottom:20px;">
                 <div style="font-size:0.9rem; color:var(--text-sub)">該月總支出</div>
@@ -125,16 +161,20 @@
             <div style="height:220px; margin-bottom:20px"><canvas id="pieChart"></canvas></div>
             <div id="category-list"></div>
         </div>
+
         <div class="card">
             <h2>📈 淨資產趨勢</h2>
             <div style="height:150px"><canvas id="netWorthChart"></canvas></div>
         </div>
+
         <div class="card">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                <h2>💰 帳戶餘額</h2>
-                <div style="font-size:0.9rem; color:var(--text-sub)">總計: <span id="stats-total-worth" style="font-weight:bold; color:var(--primary)">$0</span></div>
+                <h2>💰 帳戶餘額清單</h2>
             </div>
-            <div id="acc-list"></div>
+            <div style="font-size:0.9rem; font-weight:bold; margin-bottom:10px">🟢 資產 (總計: <span id="stats-total-assets" style="color:var(--success)">$0</span>)</div>
+            <div id="asset-list" style="margin-bottom:20px"></div>
+            <div style="font-size:0.9rem; font-weight:bold; margin-bottom:10px">🔴 負債 (總計: <span id="stats-total-liabs" style="color:var(--danger)">$0</span>)</div>
+            <div id="liab-list"></div>
         </div>
     </div>
 
@@ -146,20 +186,35 @@
     </div>
 
     <div id="page-settings" class="page">
+        <div class="card" style="border: 1px solid var(--warning);">
+            <h2>🔐 App 隱私密碼</h2>
+            <div style="font-size:0.8rem; color:var(--text-sub); margin-bottom:10px">設定後，每次開啟網頁都需要輸入密碼解鎖。(若要取消密碼，請留白並點擊儲存)</div>
+            <div style="display:flex; gap:5px; margin-bottom:5px">
+                <input type="password" id="new-pwd" placeholder="輸入新密碼 (或留白取消)">
+                <button onclick="setAppPassword()" style="width:80px; background:var(--warning); color:white; border:none; border-radius:10px; font-weight:bold;">儲存</button>
+            </div>
+            <div id="pwd-status" style="font-size:0.85rem; color:var(--success); font-weight:bold;"></div>
+        </div>
+
         <div class="card">
             <h2 style="color:var(--success)">☁️ 雲端連線狀態</h2>
-            <div style="font-size:0.8rem; color:var(--text-sub); margin-bottom:10px">資料儲存於 Google Sheet (db 分頁)</div>
-            <button class="btn-main" onclick="loadFromCloud()" style="margin-bottom:10px">🔄 重新整理資料</button>
+            <div style="font-size:0.8rem; color:var(--text-sub); margin-bottom:10px">狀態：<span id="sync-status">初始化中...</span></div>
+            <button class="btn-main" onclick="forceSync()" style="margin-bottom:10px">🔄 重新整理資料</button>
         </div>
+
         <div class="card">
-            <h2>⚙️ 分類與帳戶</h2>
-            <div style="font-weight:bold; margin-bottom:5px">分類</div>
+            <h2>⚙️ 分類與帳戶管理</h2>
+            <div style="font-weight:bold; margin-bottom:5px">一般分類</div>
             <div style="display:flex; gap:5px; margin-bottom:15px"><input id="new-cat" placeholder="新分類"><button onclick="addItem('categories','new-cat')" style="width:40px; background:var(--primary); color:white; border:none; border-radius:10px">+</button></div>
             <div id="manage-cats" style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:20px"></div>
             
-            <div style="font-weight:bold; margin-bottom:5px">帳戶</div>
-            <div style="display:flex; gap:5px; margin-bottom:15px"><input id="new-acc" placeholder="新帳戶"><button onclick="addItem('accounts','new-acc')" style="width:40px; background:var(--primary); color:white; border:none; border-radius:10px">+</button></div>
-            <div id="manage-accs" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
+            <div style="font-weight:bold; margin-bottom:5px">🟢 資產帳戶 (如: 銀行, 錢包)</div>
+            <div style="display:flex; gap:5px; margin-bottom:15px"><input id="new-acc" placeholder="新資產帳戶"><button onclick="addItem('accounts','new-acc')" style="width:40px; background:var(--success); color:white; border:none; border-radius:10px">+</button></div>
+            <div id="manage-accs" style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:20px"></div>
+
+            <div style="font-weight:bold; margin-bottom:5px; color:var(--danger)">🔴 負債帳戶 (如: 信用卡, 貸款)</div>
+            <div style="display:flex; gap:5px; margin-bottom:15px"><input id="new-liab" placeholder="新負債帳戶"><button onclick="addItem('liabilities','new-liab')" style="width:40px; background:var(--danger); color:white; border:none; border-radius:10px">+</button></div>
+            <div id="manage-liabs" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
         </div>
     </div>
 </div>
@@ -173,94 +228,208 @@
 
 <script>
     // ==========================================
-    // 🔴 請填入你的 Google Apps Script 網址
+    // 🔴 請將你的 Google Script URL 貼在下方單引號內
     const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby03-0vA-rysqQXHBYnFRu_0VJeouM-RIrKd5l804e9HloUE003d_bYaSVPbXHGaUY10w/exec'; 
     // ==========================================
 
-    let appData = { txs: [], settings: { categories: [], accounts: [] }, theme: 'light' };
+    const DEFAULT_DATA = {
+        txs: [],
+        settings: { 
+            categories: ['餐飲','交通','購物','娛樂','居住','薪水','投資'], 
+            accounts: ['現金','銀行'],
+            liabilities: ['信用卡'],
+            password: '' // V8.2 新增密碼欄位預設為空
+        },
+        theme: 'light'
+    };
+
+    let appData = JSON.parse(JSON.stringify(DEFAULT_DATA));
     let currentType = 'expense';
     let charts = {};
     let analysisDate = new Date();
+    let isUnlocked = false; // V8.2 密碼狀態追蹤
 
-    // 啟動程式
     async function init() {
         document.getElementById('date-input').valueAsDate = new Date();
         
-        if(!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes('你的網址')) {
-            hideLoader();
-            alert('⚠️ 請先在代碼中填入 Google Script URL');
-            return;
+        // 1. 先讀取本地緩存
+        const local = localStorage.getItem('finMasterV8_Cloud');
+        if(local) {
+            try {
+                let parsed = JSON.parse(local);
+                if (!parsed.settings) parsed.settings = DEFAULT_DATA.settings;
+                if (!parsed.settings.liabilities) parsed.settings.liabilities = [];
+                // 確保密碼屬性存在
+                if (parsed.settings.password === undefined) parsed.settings.password = '';
+                appData = parsed;
+            } catch(e) { console.error('Local cache error'); }
         }
 
-        // 強制從雲端下載資料
+        // 2. 判斷是否需要密碼解鎖
+        if (appData.settings.password && appData.settings.password !== '') {
+            document.getElementById('lock-screen').style.display = 'flex';
+            hideLoader(); // 隱藏載入圈圈，讓使用者專心輸入密碼
+        } else {
+            isUnlocked = true;
+            startApp();
+        }
+    }
+
+    // V8.2 解鎖功能
+    function unlockApp() {
+        const inputPwd = document.getElementById('unlock-pwd').value;
+        if (inputPwd === appData.settings.password) {
+            document.getElementById('lock-screen').style.display = 'none';
+            isUnlocked = true;
+            startApp(); // 解鎖後正式啟動 App
+        } else {
+            alert('❌ 密碼錯誤！');
+            document.getElementById('unlock-pwd').value = '';
+        }
+    }
+
+    // V8.2 設定密碼功能
+    function setAppPassword() {
+        const newPwd = document.getElementById('new-pwd').value;
+        appData.settings.password = newPwd;
+        saveToCloud();
+        
+        const statusDiv = document.getElementById('pwd-status');
+        if (newPwd) {
+            statusDiv.innerText = '✅ 密碼已設定開啟！下次進入將要求解鎖。';
+            statusDiv.style.color = 'var(--success)';
+        } else {
+            statusDiv.innerText = '✅ 密碼已取消！';
+            statusDiv.style.color = 'var(--danger)';
+        }
+        setTimeout(() => statusDiv.innerText = '', 4000);
+        document.getElementById('new-pwd').value = '';
+    }
+
+    async function startApp() {
+        if(appData.theme) document.documentElement.setAttribute('data-theme', appData.theme);
+        updateUI();
+
+        if(!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes('你的網址')) {
+            hideLoader();
+            document.getElementById('sync-status').innerText = '⚠️ 未設定網址';
+            alert('⚠️ 請先在代碼下方貼上 Google Script URL');
+            return;
+        }
         await loadFromCloud();
     }
 
-    // --- 雲端核心 (Direct to Sheet) ---
+    // --- 雲端連線 ---
     async function loadFromCloud() {
-        showLoader(true, '正在從 Google Sheet 下載...');
+        if (!isUnlocked) return; // 如果還沒解鎖，先暫停雲端下載以免覆蓋畫面
+        showLoader(true, '正在同步雲端資料...');
         try {
             const res = await fetch(GOOGLE_SCRIPT_URL);
             const data = await res.json();
             
-            if(data) {
-                appData = data;
-                if(!appData.txs) appData.txs = [];
-                if(!appData.settings) appData.settings = { categories: [], accounts: [] };
+            if(data && typeof data === 'object') {
+                if(!data.settings) data.settings = DEFAULT_DATA.settings;
+                if(!data.settings.liabilities) data.settings.liabilities = [];
+                if(data.settings.password === undefined) data.settings.password = '';
+                if(!data.txs) data.txs = [];
                 
-                if(appData.theme) document.documentElement.setAttribute('data-theme', appData.theme);
+                appData = data;
+                saveLocal();
                 updateUI();
-                console.log('雲端資料已載入');
+                document.getElementById('sync-status').innerText = '✅ 已連接雲端';
+
+                // 如果雲端拉下來發現有密碼，但當前未解鎖，立即鎖定 (防範多裝置同步)
+                if (appData.settings.password && !isUnlocked) {
+                    document.getElementById('lock-screen').style.display = 'flex';
+                }
             }
         } catch (e) {
-            alert('❌ 無法連線到 Google Sheet，請檢查網路。');
             console.error(e);
+            document.getElementById('sync-status').innerText = '⚠️ 離線模式';
         } finally {
             hideLoader();
         }
     }
 
     async function saveToCloud() {
-        // 為了使用者體驗，先不顯示 loading，背景上傳
-        // 但如果想確保資料安全，可以打開 loader
-        showLoader(true, '正在儲存到 Google Sheet...');
-        
+        saveLocal();
+        if(!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes('你的網址')) return;
+        document.getElementById('sync-status').innerText = '上傳中...';
         try {
             await fetch(GOOGLE_SCRIPT_URL, {
-                method: 'POST',
-                mode: 'no-cors', 
-                headers: { 'Content-Type': 'application/json' },
+                method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(appData)
             });
-            console.log('上傳成功');
+            document.getElementById('sync-status').innerText = `✅ 已上傳 ${new Date().toLocaleTimeString()}`;
         } catch (e) {
-            alert('❌ 儲存失敗！請檢查網路。');
-            console.error(e);
-        } finally {
-            hideLoader();
+            document.getElementById('sync-status').innerText = '❌ 上傳失敗';
         }
     }
+
+    function saveLocal() { localStorage.setItem('finMasterV8_Cloud', JSON.stringify(appData)); }
+    function forceSync() { loadFromCloud().then(saveToCloud); }
 
     function showLoader(show, text) {
         const l = document.getElementById('loader');
-        if(show) {
-            document.getElementById('loader-text').innerText = text;
-            l.style.display = 'flex';
-            l.style.opacity = '1';
-        } else {
-            l.style.opacity = '0';
-            setTimeout(()=> l.style.display='none', 300);
-        }
+        if(show) { document.getElementById('loader-text').innerText = text; l.style.display = 'flex'; l.style.opacity = '1'; } 
+        else { l.style.opacity = '0'; setTimeout(()=> l.style.display='none', 300); }
     }
     function hideLoader() { showLoader(false); }
 
-    // --- UI 邏輯 ---
+    // --- 核心資產負債計算 ---
+    function getBalances() {
+        let assets = {}; let liabs = {};
+        (appData.settings.accounts||[]).forEach(a=>assets[a]=0);
+        (appData.settings.liabilities||[]).forEach(l=>liabs[l]=0);
+        
+        appData.txs.forEach(t => {
+            const amt = t.amt;
+            const isLiab = (acc) => (appData.settings.liabilities||[]).includes(acc);
+            
+            const handleAcc = (acc, sign) => {
+                if(!acc) return;
+                if(isLiab(acc)) liabs[acc] = (liabs[acc]||0) - sign * amt; 
+                else assets[acc] = (assets[acc]||0) + sign * amt;          
+            };
+
+            if(t.type === 'income') { handleAcc(t.acc, 1); } 
+            else if(t.type === 'expense') { handleAcc(t.acc, -1); } 
+            else if(t.type === 'transfer') { handleAcc(t.acc, -1); handleAcc(t.to_acc, 1); }
+        });
+        
+        let totalAssets = 0; Object.values(assets).forEach(v=>totalAssets+=v);
+        let totalLiabs = 0; Object.values(liabs).forEach(v=>totalLiabs+=v);
+        let netWorth = totalAssets - totalLiabs;
+        
+        return { assets, liabs, totalAssets, totalLiabs, netWorth };
+    }
+
+    // --- UI 更新邏輯 ---
     function updateUI() {
         renderDropdowns();
         renderRecent();
         calcHomeStats();
         if(document.getElementById('page-stats').classList.contains('active')) renderStats();
         renderSettings();
+    }
+
+    function calcHomeStats() {
+        const now = new Date();
+        const prefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        let inc = 0, exp = 0;
+        
+        appData.txs.forEach(t => { 
+            if (t.date.startsWith(prefix)) {
+                if(t.type === 'expense') exp += t.amt; 
+                if(t.type === 'income') inc += t.amt;
+            }
+        });
+        
+        const bals = getBalances();
+        document.getElementById('home-month-inc').innerText = '$' + inc.toLocaleString();
+        document.getElementById('home-month-exp').innerText = '$' + exp.toLocaleString();
+        document.getElementById('home-month-bal').innerText = '$' + (inc - exp).toLocaleString();
+        document.getElementById('home-net-worth').innerText = '$' + bals.netWorth.toLocaleString();
     }
 
     function addTx() {
@@ -280,60 +449,108 @@
         if (currentType === 'transfer') {
             const f = document.getElementById('from-acc-select').value;
             const t = document.getElementById('to-acc-select').value;
-            if (f === t) return alert('帳戶不能相同');
+            if (f === t) return alert('轉出與轉入帳戶不能相同');
+            if (!f || !t) return alert('請先建立帳戶');
             newTx.cat = '轉帳'; newTx.acc = f; newTx.to_acc = t;
             if (!newTx.desc) newTx.desc = `${f} -> ${t}`;
         } else {
-            newTx.cat = cat;
-            newTx.acc = acc;
+            newTx.cat = cat; newTx.acc = acc;
         }
 
         appData.txs.unshift(newTx);
-        
-        // UI Reset
         document.getElementById('amt-input').value = '';
         document.getElementById('desc-input').value = '';
         
-        updateUI();
-        saveToCloud(); // 觸發雲端儲存
-    }
-
-    // 新增分類/帳戶
-    function addItem(key, inputId) {
-        const val = document.getElementById(inputId).value.trim();
-        if(!val) return;
-        if(!appData.settings[key]) appData.settings[key] = [];
-        if(appData.settings[key].includes(val)) return alert('已存在');
+        updateUI(); saveToCloud();
         
-        appData.settings[key].push(val);
-        document.getElementById(inputId).value = '';
-        updateUI();
-        saveToCloud();
+        const btn = document.querySelector('.btn-main');
+        const orgTxt = btn.innerText; btn.innerText = '✅ 已記錄'; btn.style.background = '#10b981';
+        setTimeout(() => { btn.innerText = orgTxt; btn.style.background = ''; }, 1500);
     }
 
-    // 刪除分類/帳戶
-    function deleteItem(key, val) {
-        if(confirm(`刪除 ${val}?`)) {
-            appData.settings[key] = appData.settings[key].filter(x => x !== val);
-            updateUI();
-            saveToCloud();
+    function renderStats() {
+        const y = analysisDate.getFullYear();
+        const m = String(analysisDate.getMonth() + 1).padStart(2, '0');
+        const selectedMonth = `${y}-${m}`;
+        
+        document.getElementById('month-picker').value = selectedMonth;
+
+        const prevDate = new Date(analysisDate); prevDate.setMonth(prevDate.getMonth()-1);
+        const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth()+1).padStart(2,'0')}`;
+
+        const bals = getBalances();
+        document.getElementById('stats-total-assets').innerText = '$' + bals.totalAssets.toLocaleString();
+        document.getElementById('stats-total-liabs').innerText = '$' + bals.totalLiabs.toLocaleString();
+        
+        const formatBal = (name, val, isDebt) => {
+            const color = isDebt ? (val>0 ? 'var(--danger)' : 'var(--success)') : (val>=0 ? 'var(--success)' : 'var(--danger)');
+            return `<div class="tx-item"><span>${name}</span><span style="font-weight:bold; color:${color}">$${val.toLocaleString()}</span></div>`;
+        };
+        
+        document.getElementById('asset-list').innerHTML = Object.entries(bals.assets).map(([k,v])=>formatBal(k,v,false)).join('') || '<div style="color:#999;font-size:0.8rem">無資產帳戶</div>';
+        document.getElementById('liab-list').innerHTML = Object.entries(bals.liabs).map(([k,v])=>formatBal(k,v,true)).join('') || '<div style="color:#999;font-size:0.8rem">無負債帳戶</div>';
+
+        let catExp = {}; let totalMonth=0; let totalPrev=0;
+        appData.txs.forEach(t=>{
+            if(t.type==='expense'){
+                if(t.date.startsWith(selectedMonth)){ catExp[t.cat]=(catExp[t.cat]||0)+t.amt; totalMonth+=t.amt; }
+                else if(t.date.startsWith(prevMonth)) totalPrev+=t.amt;
+            }
+        });
+        document.getElementById('month-total-exp').innerText = '$'+totalMonth.toLocaleString();
+        
+        const badge = document.getElementById('compare-badge');
+        const diff = totalMonth-totalPrev;
+        if(totalPrev===0) badge.style.display='none';
+        else {
+            badge.style.display='inline-block';
+            badge.className = diff>0 ? 'diff-badge diff-up' : (diff<0 ? 'diff-badge diff-down' : 'diff-badge');
+            badge.innerText = diff>0 ? `比上月多花 $${diff.toLocaleString()}` : (diff<0 ? `比上月節省 $${Math.abs(diff).toLocaleString()}` : '持平');
         }
+
+        const sorted = Object.entries(catExp).sort((a,b)=>b[1]-a[1]);
+        document.getElementById('category-list').innerHTML = sorted.map(([k,v])=>`<div class="tx-item"><div><div style="width:10px;height:10px;background:var(--primary);border-radius:50%;display:inline-block;margin-right:5px"></div>${k}</div><div style="text-align:right"><div style="font-weight:bold">$${v.toLocaleString()}</div><div style="font-size:0.7rem;color:#888">${((v/totalMonth)*100).toFixed(1)}%</div></div></div>`).join('');
+        
+        if(charts.pie) charts.pie.destroy();
+        charts.pie = new Chart(document.getElementById('pieChart'), { type:'doughnut', data:{labels:sorted.map(x=>x[0]), datasets:[{data:sorted.map(x=>x[1]), backgroundColor:['#4f46e5','#ef4444','#f59e0b','#10b981','#ec4899'], borderWidth:0}]}, options:{maintainAspectRatio:false, plugins:{legend:{position:'right'}}}});
+        
+        let labs=[], dats=[]; const now=new Date();
+        for(let i=5;i>=0;i--){
+            const d=new Date(now.getFullYear(),now.getMonth()-i+1,0);
+            const ld=d.toISOString().slice(0,10);
+            labs.push(d.toISOString().slice(5,7)+'月');
+            let nw=0; 
+            appData.txs.forEach(t=>{ 
+                if(t.date.slice(0,10) <= ld) { 
+                    if(t.type==='income') nw += t.amt; 
+                    if(t.type==='expense') nw -= t.amt; 
+                }
+            });
+            dats.push(nw);
+        }
+        if(charts.line) charts.line.destroy();
+        charts.line = new Chart(document.getElementById('netWorthChart'), { type:'line', data:{labels:labs, datasets:[{label:'淨資產', data:dats, borderColor:'#10b981', backgroundColor:'rgba(16,185,129,0.1)', fill:true, tension:0.3}]}, options:{maintainAspectRatio:false, scales:{x:{grid:{display:false}},y:{grid:{display:false}}}}});
     }
-    
-    // 刪除交易
-    function deleteTx(id) {
-        if(confirm('確定刪除這筆紀錄?')) {
-            appData.txs = appData.txs.filter(x => x.id !== id);
-            updateUI();
-            saveToCloud();
-        }
+
+    function changeMonth(o) { analysisDate.setMonth(analysisDate.getMonth()+o); renderStats(); }
+    function jumpToMonth(val) {
+        if(!val) return;
+        const [y, m] = val.split('-');
+        analysisDate = new Date(y, parseInt(m)-1, 1);
+        renderStats();
     }
 
     function renderDropdowns() {
         const cats = appData.settings.categories || [];
         const accs = appData.settings.accounts || [];
-        const catOpts = cats.length ? cats.map(i=>`<option value="${i}">${i}</option>`).join('') : '<option value="">(無分類)</option>';
-        const accOpts = accs.length ? accs.map(i=>`<option value="${i}">${i}</option>`).join('') : '<option value="">(無帳戶)</option>';
+        const liabs = appData.settings.liabilities || [];
+        
+        const catOpts = cats.length ? cats.map(i=>`<option value="${i}">${i}</option>`).join('') : '<option value="">(無)</option>';
+        
+        let accOpts = '';
+        if(accs.length) accOpts += `<optgroup label="🟢 資產 (Assets)">${accs.map(i=>`<option value="${i}">${i}</option>`).join('')}</optgroup>`;
+        if(liabs.length) accOpts += `<optgroup label="🔴 負債 (Liabilities)">${liabs.map(i=>`<option value="${i}">${i}</option>`).join('')}</optgroup>`;
+        if(!accOpts) accOpts = '<option value="">(無)</option>';
 
         document.getElementById('cat-select').innerHTML = catOpts;
         document.getElementById('acc-select').innerHTML = accOpts;
@@ -341,6 +558,44 @@
         document.getElementById('to-acc-select').innerHTML = accOpts;
     }
 
+    function renderSettings() {
+        const tag = (k,id) => document.getElementById(id).innerHTML = (appData.settings[k]||[]).map(i=>`<span style="padding:6px 12px;background:#eee;border-radius:8px;font-size:0.85rem;cursor:pointer" onclick="deleteItem('${k}','${i}')">${i} ×</span>`).join('');
+        tag('categories','manage-cats'); 
+        tag('accounts','manage-accs');
+        tag('liabilities','manage-liabs');
+    }
+
+    function addItem(key, inputId) {
+        const val = document.getElementById(inputId).value.trim();
+        if(!val) return;
+        if(!appData.settings[key]) appData.settings[key] = [];
+        if(appData.settings[key].includes(val)) return alert('名稱已存在');
+        
+        appData.settings[key].push(val);
+        document.getElementById(inputId).value = '';
+        updateUI(); saveToCloud();
+    }
+
+    function deleteItem(key, val) {
+        if(confirm(`確定刪除 ${val}?`)) {
+            appData.settings[key] = appData.settings[key].filter(x => x !== val);
+            updateUI(); saveToCloud();
+        }
+    }
+
+    function deleteTx(id) {
+        if(confirm('確定刪除這筆紀錄?')) {
+            appData.txs = appData.txs.filter(x => x.id !== id);
+            updateUI(); saveToCloud();
+        }
+    }
+
+    function renderFullList() {
+        const k = document.getElementById('search').value.toLowerCase();
+        const list = appData.txs.filter(t=> t.cat.includes(k) || (t.desc && t.desc.toLowerCase().includes(k)) || t.amt.toString().includes(k));
+        document.getElementById('full-list').innerHTML = list.slice(0,50).map(t=>txHtml(t)).join('');
+    }
+    
     function renderRecent() { document.getElementById('recent-list').innerHTML = appData.txs.slice(0,5).map(t=>txHtml(t)).join(''); }
 
     function txHtml(t) {
@@ -353,14 +608,6 @@
             <div class="amount ${col}">${s}$${t.amt.toLocaleString()}</div></div>`;
     }
 
-    // 其他功能保持不變
-    function calcHomeStats() {
-        const now = new Date();
-        const prefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-        let total = 0;
-        appData.txs.forEach(t => { if (t.type === 'expense' && t.date.startsWith(prefix)) total += t.amt; });
-        document.getElementById('home-month-total').innerText = '$' + total.toLocaleString();
-    }
     function setType(t) {
         currentType = t;
         document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
@@ -368,55 +615,7 @@
         document.getElementById('normal-inputs').style.display = t==='transfer'?'none':'grid';
         document.getElementById('transfer-inputs').style.display = t==='transfer'?'grid':'none';
     }
-    function renderStats() {
-        const y = analysisDate.getFullYear();
-        const m = String(analysisDate.getMonth() + 1).padStart(2, '0');
-        const selectedMonth = `${y}-${m}`;
-        document.getElementById('analysis-month-display').innerText = selectedMonth;
 
-        let bals = {}; (appData.settings.accounts||[]).forEach(a=>bals[a]=0);
-        let netWorth = 0;
-        appData.txs.forEach(t => {
-            if(t.type==='income') bals[t.acc]=(bals[t.acc]||0)+t.amt;
-            else if(t.type==='expense') bals[t.acc]=(bals[t.acc]||0)-t.amt;
-            else if(t.type==='transfer'){ if(bals[t.acc]!==undefined) bals[t.acc]-=t.amt; if(bals[t.to_acc]!==undefined) bals[t.to_acc]+=t.amt; }
-        });
-        Object.values(bals).forEach(v=>netWorth+=v);
-        document.getElementById('stats-total-worth').innerText = '$' + netWorth.toLocaleString();
-        document.getElementById('acc-list').innerHTML = Object.entries(bals).map(([k,v])=>`<div class="tx-item"><span>${k}</span><span style="color:${v>=0?'var(--success)':'var(--danger)'}">$${v.toLocaleString()}</span></div>`).join('');
-
-        let catExp = {}; let totalMonth=0;
-        appData.txs.forEach(t=>{ if(t.type==='expense' && t.date.startsWith(selectedMonth)){ catExp[t.cat]=(catExp[t.cat]||0)+t.amt; totalMonth+=t.amt; } });
-        document.getElementById('month-total-exp').innerText = '$'+totalMonth.toLocaleString();
-        
-        const sorted = Object.entries(catExp).sort((a,b)=>b[1]-a[1]);
-        document.getElementById('category-list').innerHTML = sorted.map(([k,v])=>`<div class="tx-item"><div><div style="width:10px;height:10px;background:var(--primary);border-radius:50%;display:inline-block;margin-right:5px"></div>${k}</div><div style="text-align:right"><div style="font-weight:bold">$${v.toLocaleString()}</div><div style="font-size:0.7rem;color:#888">${((v/totalMonth)*100).toFixed(1)}%</div></div></div>`).join('');
-        
-        if(charts.pie) charts.pie.destroy();
-        charts.pie = new Chart(document.getElementById('pieChart'), { type:'doughnut', data:{labels:sorted.map(x=>x[0]), datasets:[{data:sorted.map(x=>x[1]), backgroundColor:['#4f46e5','#ef4444','#f59e0b','#10b981','#ec4899'], borderWidth:0}]}, options:{maintainAspectRatio:false, plugins:{legend:{position:'right'}}}});
-        
-        let labs=[], dats=[]; const now=new Date();
-        for(let i=5;i>=0;i--){
-            const d=new Date(now.getFullYear(),now.getMonth()-i+1,0);
-            const ld=d.toISOString().slice(0,10);
-            labs.push(d.toISOString().slice(5,7)+'月');
-            let nw=0; appData.txs.forEach(t=>{ if(t.date.slice(0,10)<=ld){ if(t.type==='income') nw+=t.amt; if(t.type==='expense') nw-=t.amt; }});
-            dats.push(nw);
-        }
-        if(charts.line) charts.line.destroy();
-        charts.line = new Chart(document.getElementById('netWorthChart'), { type:'line', data:{labels:labs, datasets:[{label:'淨資產', data:dats, borderColor:'#10b981', backgroundColor:'rgba(16,185,129,0.1)', fill:true}]}, options:{maintainAspectRatio:false, scales:{x:{grid:{display:false}},y:{grid:{display:false}}}}});
-    }
-
-    function changeMonth(o) { analysisDate.setMonth(analysisDate.getMonth()+o); renderStats(); }
-    function renderFullList() {
-        const k = document.getElementById('search').value.toLowerCase();
-        const list = appData.txs.filter(t=> t.cat.includes(k) || (t.desc && t.desc.toLowerCase().includes(k)) || t.amt.toString().includes(k));
-        document.getElementById('full-list').innerHTML = list.slice(0,50).map(t=>txHtml(t)).join('');
-    }
-    function renderSettings() {
-        const tag = (k,id) => document.getElementById(id).innerHTML = (appData.settings[k]||[]).map(i=>`<span style="padding:6px 12px;background:#eee;border-radius:8px;font-size:0.85rem;cursor:pointer" onclick="deleteItem('${k}','${i}')">${i} ×</span>`).join('');
-        tag('categories','manage-cats'); tag('accounts','manage-accs');
-    }
     function switchPage(p,btn) { document.querySelectorAll('.page').forEach(x=>x.classList.remove('active')); document.getElementById('page-'+p).classList.add('active'); if(btn){document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active')); btn.classList.add('active');} if(p==='stats') renderStats(); }
     function toggleTheme() { appData.theme = appData.theme==='light'?'dark':'light'; document.documentElement.setAttribute('data-theme', appData.theme); saveToCloud(); }
 
