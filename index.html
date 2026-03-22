@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Simon的理財大師 V8</title>
+    <title>Simon的理財大師 V8.3</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#4f46e5">
@@ -45,10 +45,17 @@
         .spinner { width: 40px; height: 40px; border: 4px solid #fff; border-top: 4px solid transparent; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 10px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        /* V8.2 新增：解鎖畫面 CSS */
+        /* V8.2: 解鎖畫面 CSS */
         #lock-screen { position: fixed; top:0; left:0; width:100%; height:100%; background: var(--bg-grad); z-index: 10000; display: none; justify-content: center; align-items: center; flex-direction: column; }
         .lock-card { background: var(--card-bg); padding: 40px 30px; border-radius: var(--radius); box-shadow: var(--shadow); text-align: center; width: 85%; max-width: 350px; border: 1px solid rgba(255,255,255,0.2); }
         .lock-card input { text-align: center; letter-spacing: 5px; font-size: 1.2rem; margin-top: 20px; margin-bottom: 20px; }
+
+        /* V8.3: 帳戶明細彈出視窗 CSS */
+        .modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9000; display:none; justify-content:center; align-items:flex-end; backdrop-filter:blur(3px); overscroll-behavior: contain; }
+        .modal-content { background: var(--card-bg); width: 100%; max-width: 600px; max-height: 85vh; border-radius: 24px 24px 0 0; padding: 25px 20px; overflow-y: auto; box-shadow: 0 -10px 40px rgba(0,0,0,0.2); animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; padding-bottom: max(20px, env(safe-area-inset-bottom)); display: flex; flex-direction: column;}
+        @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+        .acc-hover:hover { background: rgba(0,0,0,0.02); border-radius: 12px; padding-left: 10px; padding-right: 10px; transition: 0.2s;}
+        [data-theme="dark"] .acc-hover:hover { background: rgba(255,255,255,0.05); }
 
         .nav { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 500px; background: rgba(255,255,255,0.9); backdrop-filter: blur(20px); border-radius: 30px; display: flex; justify-content: space-around; padding: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.15); z-index: 100; border: 1px solid rgba(255,255,255,0.2); padding-bottom: max(12px, env(safe-area-inset-bottom)); }
         [data-theme="dark"] .nav { background: rgba(30, 41, 59, 0.9); border-color: rgba(255,255,255,0.1); }
@@ -79,6 +86,21 @@
         <div style="font-size: 0.85rem; color: var(--text-sub);">請輸入密碼以進入你的理財大師</div>
         <input type="password" id="unlock-pwd" placeholder="••••" onkeypress="if(event.key==='Enter') unlockApp()">
         <button class="btn-main" onclick="unlockApp()">解鎖 App</button>
+    </div>
+</div>
+
+<div id="acc-modal" class="modal-overlay" onclick="if(event.target===this) closeAccModal()">
+    <div class="modal-content">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+            <h2 id="modal-acc-name" style="margin:0; font-size:1.4rem;">帳戶名稱</h2>
+            <div onclick="closeAccModal()" style="width:30px; height:30px; background:rgba(0,0,0,0.05); border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; font-weight:bold; color:var(--text-sub);">✕</div>
+        </div>
+        <div style="text-align:center; padding: 20px 0; border-bottom: 1px solid rgba(0,0,0,0.05); margin-bottom: 10px;">
+            <div style="font-size:0.85rem; color:var(--text-sub); margin-bottom:5px;">目前結餘</div>
+            <div id="modal-acc-bal" style="font-size:2.5rem; font-weight:bold;">$0</div>
+        </div>
+        <h3 style="font-size:1rem; margin-bottom:10px; color:var(--text-sub)">交易紀錄</h3>
+        <div id="modal-acc-txs" style="flex:1; overflow-y:auto;"></div>
     </div>
 </div>
 
@@ -140,7 +162,7 @@
             <button class="btn-main" onclick="addTx()">記帳 (存入雲端)</button>
         </div>
         <div class="card">
-            <h2>最近交易 <span style="font-size:0.8rem; color:var(--primary)" onclick="switchPage('list')">全部 ></span></h2>
+            <h2>最近交易 <span style="font-size:0.8rem; color:var(--primary); cursor:pointer;" onclick="switchPage('list')">全部 ></span></h2>
             <div id="recent-list"></div>
         </div>
     </div>
@@ -169,7 +191,7 @@
 
         <div class="card">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                <h2>💰 帳戶餘額清單</h2>
+                <h2 style="margin:0;">💰 帳戶餘額清單 <span style="font-size:0.75rem; color:var(--text-sub); font-weight:normal; margin-left:5px;">(點擊查看明細)</span></h2>
             </div>
             <div style="font-size:0.9rem; font-weight:bold; margin-bottom:10px">🟢 資產 (總計: <span id="stats-total-assets" style="color:var(--success)">$0</span>)</div>
             <div id="asset-list" style="margin-bottom:20px"></div>
@@ -238,7 +260,7 @@
             categories: ['餐飲','交通','購物','娛樂','居住','薪水','投資'], 
             accounts: ['現金','銀行'],
             liabilities: ['信用卡'],
-            password: '' // V8.2 新增密碼欄位預設為空
+            password: ''
         },
         theme: 'light'
     };
@@ -247,48 +269,43 @@
     let currentType = 'expense';
     let charts = {};
     let analysisDate = new Date();
-    let isUnlocked = false; // V8.2 密碼狀態追蹤
+    let isUnlocked = false;
 
     async function init() {
         document.getElementById('date-input').valueAsDate = new Date();
         
-        // 1. 先讀取本地緩存
         const local = localStorage.getItem('finMasterV8_Cloud');
         if(local) {
             try {
                 let parsed = JSON.parse(local);
                 if (!parsed.settings) parsed.settings = DEFAULT_DATA.settings;
                 if (!parsed.settings.liabilities) parsed.settings.liabilities = [];
-                // 確保密碼屬性存在
                 if (parsed.settings.password === undefined) parsed.settings.password = '';
                 appData = parsed;
             } catch(e) { console.error('Local cache error'); }
         }
 
-        // 2. 判斷是否需要密碼解鎖
         if (appData.settings.password && appData.settings.password !== '') {
             document.getElementById('lock-screen').style.display = 'flex';
-            hideLoader(); // 隱藏載入圈圈，讓使用者專心輸入密碼
+            hideLoader();
         } else {
             isUnlocked = true;
             startApp();
         }
     }
 
-    // V8.2 解鎖功能
     function unlockApp() {
         const inputPwd = document.getElementById('unlock-pwd').value;
         if (inputPwd === appData.settings.password) {
             document.getElementById('lock-screen').style.display = 'none';
             isUnlocked = true;
-            startApp(); // 解鎖後正式啟動 App
+            startApp();
         } else {
             alert('❌ 密碼錯誤！');
             document.getElementById('unlock-pwd').value = '';
         }
     }
 
-    // V8.2 設定密碼功能
     function setAppPassword() {
         const newPwd = document.getElementById('new-pwd').value;
         appData.settings.password = newPwd;
@@ -321,7 +338,7 @@
 
     // --- 雲端連線 ---
     async function loadFromCloud() {
-        if (!isUnlocked) return; // 如果還沒解鎖，先暫停雲端下載以免覆蓋畫面
+        if (!isUnlocked) return;
         showLoader(true, '正在同步雲端資料...');
         try {
             const res = await fetch(GOOGLE_SCRIPT_URL);
@@ -338,7 +355,6 @@
                 updateUI();
                 document.getElementById('sync-status').innerText = '✅ 已連接雲端';
 
-                // 如果雲端拉下來發現有密碼，但當前未解鎖，立即鎖定 (防範多裝置同步)
                 if (appData.settings.password && !isUnlocked) {
                     document.getElementById('lock-screen').style.display = 'flex';
                 }
@@ -468,6 +484,47 @@
         setTimeout(() => { btn.innerText = orgTxt; btn.style.background = ''; }, 1500);
     }
 
+    // V8.3: 打開帳戶明細彈出視窗
+    function openAccModal(accName, isDebt) {
+        const bals = getBalances();
+        const currentBal = isDebt ? bals.liabs[accName] : bals.assets[accName];
+        
+        document.getElementById('modal-acc-name').innerText = accName + (isDebt ? ' (負債)' : ' (資產)');
+        const color = isDebt ? (currentBal>0 ? 'var(--danger)' : 'var(--success)') : (currentBal>=0 ? 'var(--success)' : 'var(--danger)');
+        document.getElementById('modal-acc-bal').innerHTML = `<span style="color:${color}">$${(currentBal||0).toLocaleString()}</span>`;
+        
+        // 篩選與此帳戶有關的交易
+        let accTxs = appData.txs.filter(t => t.acc === accName || t.to_acc === accName);
+        
+        document.getElementById('modal-acc-txs').innerHTML = accTxs.map(t => {
+            // 判斷這筆交易對「這個帳戶」來說是進帳還是出帳
+            let isMoneyIn = false;
+            if(t.type === 'income' && t.acc === accName) isMoneyIn = true;
+            if(t.type === 'transfer' && t.to_acc === accName) isMoneyIn = true;
+            // 如果是負債帳戶，還款(轉入)是 money in，刷卡(支出)是 money out。
+
+            let sign = isMoneyIn ? '+' : '-';
+            let colClass = isMoneyIn ? 'in' : 'out';
+            
+            let icon = t.cat ? t.cat[0] : '⇄';
+            let descText = t.desc || '';
+            if (t.type === 'transfer') {
+                descText = t.acc === accName ? `轉出至 ${t.to_acc}` : `自 ${t.acc} 轉入`;
+            }
+            
+            return `<div class="tx-item">
+                <div style="display:flex;align-items:center"><div class="tx-icon">${icon}</div><div><div style="font-weight:600">${t.cat||'轉帳'} <small style="opacity:0.6">${descText}</small></div><div style="font-size:0.8rem;opacity:0.5">${t.date.slice(0,16)}</div></div></div>
+                <div class="amount ${colClass}" style="font-weight:bold">${sign}$${t.amt.toLocaleString()}</div>
+            </div>`;
+        }).join('') || '<div style="text-align:center; padding:30px; color:var(--text-sub)">尚無交易紀錄</div>';
+        
+        document.getElementById('acc-modal').style.display = 'flex';
+    }
+
+    function closeAccModal() { 
+        document.getElementById('acc-modal').style.display = 'none'; 
+    }
+
     function renderStats() {
         const y = analysisDate.getFullYear();
         const m = String(analysisDate.getMonth() + 1).padStart(2, '0');
@@ -482,9 +539,13 @@
         document.getElementById('stats-total-assets').innerText = '$' + bals.totalAssets.toLocaleString();
         document.getElementById('stats-total-liabs').innerText = '$' + bals.totalLiabs.toLocaleString();
         
+        // V8.3: 加入 acc-hover class 與 onclick 事件
         const formatBal = (name, val, isDebt) => {
             const color = isDebt ? (val>0 ? 'var(--danger)' : 'var(--success)') : (val>=0 ? 'var(--success)' : 'var(--danger)');
-            return `<div class="tx-item"><span>${name}</span><span style="font-weight:bold; color:${color}">$${val.toLocaleString()}</span></div>`;
+            return `<div class="tx-item acc-hover" style="cursor:pointer;" onclick="openAccModal('${name}', ${isDebt})">
+                <span>${name}</span>
+                <span style="font-weight:bold; color:${color}">$${val.toLocaleString()} <span style="color:var(--text-sub); font-size:0.8rem; margin-left:5px;">ᐳ</span></span>
+            </div>`;
         };
         
         document.getElementById('asset-list').innerHTML = Object.entries(bals.assets).map(([k,v])=>formatBal(k,v,false)).join('') || '<div style="color:#999;font-size:0.8rem">無資產帳戶</div>';
@@ -587,6 +648,8 @@
         if(confirm('確定刪除這筆紀錄?')) {
             appData.txs = appData.txs.filter(x => x.id !== id);
             updateUI(); saveToCloud();
+            // 如果彈出視窗正在開啟，則關閉它以防顯示舊資料
+            closeAccModal(); 
         }
     }
 
