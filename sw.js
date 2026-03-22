@@ -1,5 +1,5 @@
 // 版本號：每次你有大修改 (例如改了 index.html)，建議把這裡的 v1 改成 v2, v3...
-const CACHE_NAME = 'finance-master-v3'; 
+const CACHE_NAME = 'finance-master-v4'; 
 
 const urlsToCache = [
   './',
